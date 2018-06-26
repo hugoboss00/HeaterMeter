@@ -16,7 +16,7 @@ static state_t menuAlarmTriggered(button_t button);
 static state_t menuLcdBacklight(button_t button);
 static state_t menuToast(button_t button);
 
-static const menu_definition_t MENU_DEFINITIONS[] PROGMEM = {
+static const menu_definition_t MENU_DEFINITIONS[] = {
   { ST_HOME_FOOD1, menuHome, 5, BUTTON_LEFT },
   { ST_HOME_FOOD2, menuHome, 5, BUTTON_LEFT },
   { ST_HOME_AMB, menuHome, 5, BUTTON_LEFT },
@@ -37,7 +37,7 @@ static const menu_definition_t MENU_DEFINITIONS[] PROGMEM = {
   { 0, 0 },
 };
 
-const menu_transition_t MENU_TRANSITIONS[] PROGMEM = {
+const menu_transition_t MENU_TRANSITIONS[] = {
   { ST_HOME_FOOD1, BUTTON_DOWN | BUTTON_TIMEOUT, ST_HOME_FOOD2 },
   { ST_HOME_FOOD1, BUTTON_RIGHT,   ST_SETPOINT },
   { ST_HOME_FOOD1, BUTTON_UP,      ST_HOME_AMB },
@@ -137,8 +137,8 @@ static void menuBooleanEdit(button_t button, const char *preamble)
 
   lcd.setCursor(0, 1);
   if (preamble != NULL)
-    lcdprint_P(preamble, false);
-  lcdprint_P((editInt != 0) ? PSTR("Yes") : PSTR("No "), false);
+    lcdprint(preamble, false);
+  lcdprint((editInt != 0) ? ("Yes") : ("No "), false);
 }
 
 static void menuNumberEdit(button_t button, unsigned char increment,
@@ -163,7 +163,7 @@ static void menuNumberEdit(button_t button, unsigned char increment,
     editInt = maxVal;
 
   lcd.setCursor(0, 1);
-  snprintf_P(buffer, sizeof(buffer), format, editInt, pid.getUnits());
+  snprintf(buffer, sizeof(buffer), format, editInt, pid.getUnits());
   lcd.print(buffer);
 }
 
@@ -309,7 +309,7 @@ static state_t menuSetpoint(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("Set temperature:"), true);
+    lcdprint(("Set temperature:"), true);
     editInt = pid.getSetPoint();
   }
   else if (button == BUTTON_LEAVE)
@@ -320,7 +320,7 @@ static state_t menuSetpoint(button_t button)
       storeSetPoint(editInt);
   }
 
-  menuNumberEdit(button, 5, 0, 1000, PSTR("%3d" DEGREE "%c"));
+  menuNumberEdit(button, 5, 0, 1000, ("%3d" DEGREE "%c"));
   return ST_AUTO;
 }
 
@@ -332,7 +332,7 @@ static state_t menuProbename(button_t button)
   if (button == BUTTON_ENTER)
   {
     loadProbeName(probeIndex);
-    snprintf_P(buffer, sizeof(buffer), PSTR("Set probe %1d name"), probeIndex);
+    snprintf(buffer, sizeof(buffer), ("Set probe %1d name"), probeIndex);
   }
 
   // note that we only load the buffer with text on the ENTER call,
@@ -356,7 +356,7 @@ static state_t menuProbeOffset(button_t button)
   else if (button == BUTTON_LEAVE)
     storeAndReportProbeOffset(probeIndex, editInt);
 
-  menuNumberEdit(button, 1, -100, 100, PSTR("Offset %4d" DEGREE "%c"));
+  menuNumberEdit(button, 1, -100, 100, ("Offset %4d" DEGREE "%c"));
   return ST_AUTO;
 }
 
@@ -364,7 +364,7 @@ static state_t menuLidOpenOff(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("Lid open offset"), true);
+    lcdprint(("Lid open offset"), true);
     editInt = pid.LidOpenOffset;
   }
   else if (button == BUTTON_LEAVE)
@@ -372,7 +372,7 @@ static state_t menuLidOpenOff(button_t button)
     storeLidParam(LIDPARAM_OFFSET, editInt);
   }
 
-  menuNumberEdit(button, 1, 0, 100, PSTR("%3d%% below set"));
+  menuNumberEdit(button, 1, 0, 100, ("%3d%% below set"));
   return ST_AUTO;
 }
 
@@ -380,7 +380,7 @@ static state_t menuLidOpenDur(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("Lid open timer"), true);
+    lcdprint(("Lid open timer"), true);
     editInt = pid.getLidOpenDuration();
   }
   else if (button == BUTTON_LEAVE)
@@ -388,7 +388,7 @@ static state_t menuLidOpenDur(button_t button)
     storeLidParam(LIDPARAM_DURATION, editInt);
   }
 
-  menuNumberEdit(button, 10, 0, 1000, PSTR("%3d seconds"));
+  menuNumberEdit(button, 10, 0, 1000, ("%3d seconds"));
   return ST_AUTO;
 }
 
@@ -396,14 +396,14 @@ static state_t menuManualMode(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("Manual fan mode"), true);
+    lcdprint(("Manual fan mode"), true);
     editInt = pid.isManualOutputMode();
   }
   else if (button == BUTTON_LEAVE)
   {
     // Check to see if it is different because the setPoint 
     // field stores either the setPoint or manual mode
-    boolean manual = (editInt != 0); 
+    bool manual = (editInt != 0); 
     if (manual != pid.isManualOutputMode())
       storeSetPoint(manual ? 0 : pid.getSetPoint());
   }
@@ -415,7 +415,7 @@ static state_t menuResetConfig(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("Reset config?"), true);
+    lcdprint(("Reset config?"), true);
     editInt = 0;
   }
   else if (button == BUTTON_LEAVE)
@@ -423,7 +423,7 @@ static state_t menuResetConfig(button_t button)
     if (editInt != 0)
     {
       eepromLoadConfig(1);
-      print_P(PSTR("HMRC,USER")); Serial_nl();
+      CmdSerial.write(("HMRC,USER")); Serial_nl();
     }
   }
   menuBooleanEdit(button, NULL);
@@ -434,7 +434,7 @@ static state_t menuMaxFanSpeed(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("Maximum auto fan"), true);
+    lcdprint(("Maximum auto fan"), true);
     editInt = pid.getFanMaxSpeed();
   }
   else if (button == BUTTON_LEAVE)
@@ -443,7 +443,7 @@ static state_t menuMaxFanSpeed(button_t button)
       storeAndReportMaxFanSpeed(editInt);
   }
   
-  menuNumberEdit(button, 5, 0, 100, PSTR("speed %3d%%"));
+  menuNumberEdit(button, 5, 0, 100, ("speed %3d%%"));
   return ST_AUTO;
 }
 
@@ -465,7 +465,7 @@ static state_t menuAlarmAction(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("Alarm"), true);
+    lcdprint(("Alarm"), true);
     editInt = 0;
   }
   else if (button == BUTTON_TIMEOUT)
@@ -480,7 +480,7 @@ static state_t menuAlarmAction(button_t button)
     editInt = !editInt;
 
   lcd.setCursor(0, 1);
-  lcdprint_P((editInt != 0) ? PSTR("^ Disable v") : PSTR("^ Silence v"), false);
+  lcdprint((editInt != 0) ? ("^ Disable v") : ("^ Silence v"), false);
 
   return ST_AUTO;
 }
@@ -489,7 +489,7 @@ static state_t menuLcdBacklight(button_t button)
 {
   if (button == BUTTON_ENTER)
   {
-    lcdprint_P(PSTR("LCD brightness"), true);
+    lcdprint(("LCD brightness"), true);
     editInt = g_LcdBacklight;
   }
   else if (button == BUTTON_LEAVE)
@@ -501,7 +501,7 @@ static state_t menuLcdBacklight(button_t button)
     }
   }
   
-  menuNumberEdit(button, 10, 0, 100, PSTR("%3d%%"));
+  menuNumberEdit(button, 10, 0, 100, ("%3d%%"));
   setLcdBacklight(0x80 | editInt);
   return ST_AUTO;
 }

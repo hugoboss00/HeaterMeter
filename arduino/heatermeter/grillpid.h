@@ -2,8 +2,10 @@
 #ifndef __GRILLPID_H__
 #define __GRILLPID_H__
 
-#include "Arduino.h"
+//#include "Arduino.h"
+#include <stdbool.h>
 #include "grillpid_conf.h"
+#include "systemif.h"
 
 // Probe types used in probeType config
 #define PROBETYPE_DISABLED 0  // do not read
@@ -14,6 +16,8 @@
 #define STEINHART_COUNT 4
 
 //#define NOISEDUMP_PIN 5
+
+
 
 struct __eeprom_probe
 {
@@ -44,16 +48,16 @@ public:
   void setHigh(int value);
   int getLow(void) const { return Thresholds[ALARM_IDX_LOW]; }
   int getHigh(void) const { return Thresholds[ALARM_IDX_HIGH]; }
-  boolean getLowEnabled(void) const { return Thresholds[ALARM_IDX_LOW] > 0; }
-  boolean getHighEnabled(void) const { return Thresholds[ALARM_IDX_HIGH] > 0; }
-  boolean getLowRinging(void) const { return Ringing[ALARM_IDX_LOW]; }
-  boolean getHighRinging(void) const { return Ringing[ALARM_IDX_HIGH]; }
+  bool getLowEnabled(void) const { return Thresholds[ALARM_IDX_LOW] > 0; }
+  bool getHighEnabled(void) const { return Thresholds[ALARM_IDX_HIGH] > 0; }
+  bool getLowRinging(void) const { return Ringing[ALARM_IDX_LOW]; }
+  bool getHighRinging(void) const { return Ringing[ALARM_IDX_HIGH]; }
   void setThreshold(unsigned char idx, int value);
   int getThreshold(unsigned char idx) const { return Thresholds[idx]; }
   void silenceAll(void) { setThreshold(ALARM_IDX_LOW, 0); setThreshold(ALARM_IDX_HIGH, 0); }
   int Thresholds[2];
-  boolean Ringing[2];
-  boolean Armed[2];
+  bool Ringing[2];
+  bool Armed[2];
 };
 
 #define TSTATUS_NONE  'U'
@@ -67,7 +71,7 @@ private:
   const unsigned char _pin;
   unsigned char _probeType;
   char _tempStatus;
-  boolean _hasTempAvg;
+  bool _hasTempAvg;
 
 public:
   TempProbe(const unsigned char pin);
@@ -88,12 +92,12 @@ public:
   /* Runtime Data/Methods */
   // Last averaged temperature reading
   float Temperature;
-  boolean hasTemperature(void) const { return _tempStatus == TSTATUS_OK; }
+  bool hasTemperature(void) const { return _tempStatus == TSTATUS_OK; }
   char getTempStatus(void) const { return _tempStatus; }
   void setTemperatureC(float T);
   // Temperature moving average
   float TemperatureAvg;
-  boolean hasTemperatureAvg(void) const { return _hasTempAvg; }
+  bool hasTemperatureAvg(void) const { return _hasTempAvg; }
   // Convert ADC to Temperature
   void calcTemp(unsigned int _accumulator);
   // Perform once-per-period processing
@@ -143,12 +147,9 @@ public:
 unsigned int analogReadOver(unsigned char pin, unsigned char bits);
 // Range of the last ADC period for this pin, always 10bit >> 2
 unsigned char analogReadRange(unsigned char pin);
-#if defined(GRILLPID_DYNAMIC_RANGE)
-// Is the pin using the 1.1V reference
-bool analogIsBandgapReference(unsigned char pin);
-void analogSetBandgapReference(unsigned char pin, bool enable);
-unsigned int analogGetBandgapScale(void);
-#endif /* GRILLPID_DYNAMIC_RANGE */
+
+
+#define constrain(vALUE, mIN, mAX) (vALUE < mIN)? mIN: (vALUE > mAX)?mAX:vALUE;
 
 class GrillPid
 {
@@ -241,7 +242,7 @@ public:
   // The number of timer ticks the servo is moving to
   int getServoTarget(void) const { return _servoTarget; }
   // Calculate the next step of servo movement in ticks
-  unsigned int getServoStepNext(unsigned int curr);
+  //unsigned int getServoStepNext(unsigned int curr);
   // Active ceil means "servo open the maximum amount at this PID output"
   unsigned char getServoActiveCeil(void) const { return _servoActiveCeil; }
   void setServoActiveCeil(unsigned char value) { _servoActiveCeil = constrain(value, 0, 100); }
@@ -254,9 +255,9 @@ public:
   // Current PID output in percent, setting this will turn on manual output mode
   unsigned char getPidOutput() const { return _pidOutput; }
   void setPidOutput(int value);
-  boolean isManualOutputMode(void) const { return _pidMode == PIDMODE_MANUAL; }
+  bool isManualOutputMode(void) const { return _pidMode == PIDMODE_MANUAL; }
   // Output completely enabled/disabled
-  boolean isDisabled(void) const { return _pidMode == PIDMODE_OFF; }
+  bool isDisabled(void) const { return _pidMode == PIDMODE_OFF; }
   void setPidMode(unsigned char mode);
   unsigned char getPidMode(void) const { return _pidMode; }
   // Current fan speed output in percent
@@ -268,19 +269,19 @@ public:
   float PidOutputAvg;
   // Seconds remaining in the lid open countdown
   unsigned int LidOpenResumeCountdown;
-  boolean isLidOpen(void) const { return LidOpenResumeCountdown != 0; }
+  bool isLidOpen(void) const { return LidOpenResumeCountdown != 0; }
   // true if any probe has a non-zero temperature
-  boolean isAnyFoodProbeActive(void) const;
+  bool isAnyFoodProbeActive(void) const;
   unsigned int countOfType(unsigned char probeType) const;
   // true if PidOutput > 0
-  boolean isOutputActive(void) const { return _pidOutput != 0; }
+  bool isOutputActive(void) const { return _pidOutput != 0; }
   // true if fan is running at maximum speed or servo wide open
-  boolean isOutputMaxed(void) const { return _pidOutput >= 100; }
+  bool isOutputMaxed(void) const { return _pidOutput >= 100; }
   // true if temperature was >= setpoint since last set / lid event
-  boolean isPitTempReached(void) const { return _pidMode == PIDMODE_NORMAL; }
+  bool isPitTempReached(void) const { return _pidMode == PIDMODE_NORMAL; }
 
   // Call this in loop()
-  boolean doWork(void);
+  bool doWork(void);
   void resetLidOpenResumeCountdown(void);
   void status(void) const;
   void pidStatus(void) const;

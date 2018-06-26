@@ -1,14 +1,20 @@
-#include <util/atomic.h>
+//#include <util/atomic.h>
 #include "econfig.h"
+
+
 
 uint8_t econfig_read_byte(const void *_src)
 {
+#if 0
   do {} while (eeprom_is_busy());
 
   // Read current value
   EEAR = (uint16_t)_src;
   EECR = _BV(EERE);
   return EEDR;
+#endif
+	return 0;
+	
 }
 
 __attribute__((noinline))
@@ -30,6 +36,7 @@ uint16_t econfig_read_word(const void *_src)
 
 void econfig_write_byte(void *_dst, uint8_t val)
 {
+#if 0
   // This code assumes econfig_read_byte() will wait for EEPROM idle and set EEAR
   uint8_t curv = econfig_read_byte(_dst);
 
@@ -67,6 +74,7 @@ void econfig_write_byte(void *_dst, uint8_t val)
       EECR |= _BV(EEPE);
     }
   }
+#endif
 }
 
 __attribute__((noinline))

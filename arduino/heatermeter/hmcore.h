@@ -5,14 +5,11 @@
 #include "strings.h"
 
 #define HEATERMETER_SERIAL 38400 // enable serial interface
-#define HEATERMETER_RFM12  RF12_915MHZ  // enable RFM12B receiving (433MHZ|868MHZ|915MHZ)
-#define PIEZO_HZ 4000             // enable piezo buzzer at this frequency
-#if HM_BOARD_REV == 'A'
+//#define HEATERMETER_RFM12  RF12_915MHZ  // enable RFM12B receiving (433MHZ|868MHZ|915MHZ)
+//#define PIEZO_HZ 4000             // enable piezo buzzer at this frequency
 #define SHIFTREGLCD_NATIVE        // Use the native shift register instead of SPI (HM PCB <v3.2)
-#endif
 
 #include "ShiftRegLCD.h"
-#include "serialxor.h"
 #include "grillpid.h"
 #include "hmmenus.h"
 
@@ -46,7 +43,7 @@ void hmcoreSetup(void);
 void hmcoreLoop(void);
 
 void updateDisplay(void);
-void lcdprint_P(const char *p, const boolean doClear);
+void lcdprint(const char *p, const bool doClear);
 
 void eepromLoadConfig(unsigned char forceDefault);
 void storePidMode();
@@ -54,8 +51,8 @@ void storeSetPoint(int sp);
 void loadProbeName(unsigned char probeIndex);
 void storeAndReportProbeName(unsigned char probeIndex, const char *name);
 void storeAndReportProbeOffset(unsigned char probeIndex, int offset);
-void storeProbeAlarmOn(unsigned char probeIndex, boolean isHigh, boolean value);
-void storeProbeAlarmVal(unsigned char probeIndex, boolean isHigh, int value);
+void storeProbeAlarmOn(unsigned char probeIndex, bool isHigh, bool value);
+void storeProbeAlarmVal(unsigned char probeIndex, bool isHigh, int value);
 void storeAndReportMaxFanSpeed(unsigned char maxFanSpeed);
 void setLcdBacklight(unsigned char lcdBacklight);
 void storeLcdBacklight(unsigned char lcdBacklight);
@@ -71,7 +68,7 @@ void silenceRingingAlarm(void);
 void storeLidParam(unsigned char idx, int val);
 
 extern GrillPid pid;
-extern ShiftRegLCD lcd;
+extern ShiftRegLCDNative lcd;
 extern unsigned char g_LcdBacklight;
 
 #endif /* __HMCORE_H__ */

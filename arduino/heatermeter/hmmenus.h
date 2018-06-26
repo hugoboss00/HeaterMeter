@@ -2,7 +2,6 @@
 #ifndef __HMMENUS_H__
 #define __HMMENUS_H__
 
-#include <avr/pgmspace.h>
 #include "menus.h"
 
 #define BUTTON_LEFT  (1<<0)
@@ -44,10 +43,10 @@ public:
     {};
 
   void displayToast(char *msg);
-  unsigned char *getToastLine0(void) { return &_toastMsg[0]; }
-  unsigned char *getToastLine1(void) { return &_toastMsg[sizeof(_toastMsg)/2]; }
+  char *getToastLine0(void) { return &_toastMsg[0]; }
+  char *getToastLine1(void) { return &_toastMsg[sizeof(_toastMsg)/2]; }
 private:
-  unsigned char _toastMsg[33];
+  char _toastMsg[33];
 };
 
 extern HmMenuSystem Menus;

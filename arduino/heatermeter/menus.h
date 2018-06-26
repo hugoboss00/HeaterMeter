@@ -75,7 +75,7 @@ private:
 
   unsigned long getTimeoutDuration(void) const;
   unsigned long getElapsedDuration(void) const;
-  boolean getHasLongpress(button_t button) const;
+  bool getHasLongpress(button_t button) const;
   handler_t getHandler(void) const;
   state_t findTransition(button_t button) const;
 };

@@ -1,9 +1,10 @@
 // HeaterMeter Copyright 2016 Bryan Mayland <bmayland@capnbry.net>
-#include "Arduino.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "econfig.h"
-#include <avr/wdt.h>
-#include <avr/power.h>
-#include <digitalWriteFast.h>
+#include "digitalWriteFast.h"
 
 #include "hmcore.h"
 
@@ -14,15 +15,18 @@
 #include "bigchars.h"
 #include "ledmanager.h"
 #include "tone_4khz.h"
+#include "systemif.h"
+#include "serial.h"
 
 static TempProbe probe0(PIN_PIT);
 static TempProbe probe1(PIN_FOOD1);
 static TempProbe probe2(PIN_FOOD2);
 static TempProbe probe3(PIN_AMB);
 GrillPid pid;
+Serial CmdSerial;
 
 #ifdef SHIFTREGLCD_NATIVE
-ShiftRegLCD lcd(PIN_SERVO, PIN_LCD_CLK, TWO_WIRE, 2);
+ShiftRegLCDNative lcd(PIN_SERVO, PIN_LCD_CLK, TWO_WIRE, 2);
 #else
 ShiftRegLCD lcd(PIN_LCD_CLK, 2);
 #endif /* SHIFTREGLCD_NATIVE */
@@ -72,7 +76,7 @@ static const struct __eeprom_data {
   unsigned char servoMaxPos;  // in 10us
   unsigned char fanActiveFloor; // in percent
   unsigned char servoActiveCeil; // in percent
-} DEFAULT_CONFIG[] PROGMEM = {
+} DEFAULT_CONFIG[]  = {
  {
   EEPROM_MAGIC,  // magic
   225,  // setpoint
@@ -87,7 +91,7 @@ static const struct __eeprom_data {
   'F',  // Units
   0,    // min fan speed
   100,  // max fan speed
-  bit(PIDFLAG_FAN_FEEDVOLT), // PID output flags bitmask
+  _BV(PIDFLAG_FAN_FEEDVOLT), // PID output flags bitmask
   0xff, // 2-line home
   100, // max startup fan speed
   { LEDSTIMULUS_FanMax, LEDSTIMULUS_LidOpen, LEDSTIMULUS_FanOn, LEDSTIMULUS_Off },
@@ -101,7 +105,7 @@ static const struct __eeprom_data {
 // EEPROM address of the start of the probe structs, the 2 bytes before are magic
 #define EEPROM_PROBE_START  64
 
-static const struct  __eeprom_probe DEFAULT_PROBE_CONFIG PROGMEM = {
+static const struct  __eeprom_probe DEFAULT_PROBE_CONFIG  = {
   "Probe  ", // Name if you change this change the hardcoded number-appender in eepromLoadProbeConfig()
   PROBETYPE_INTERNAL,  // probeType
   0,  // offset
@@ -123,11 +127,13 @@ static const struct  __eeprom_probe DEFAULT_PROBE_CONFIG PROGMEM = {
 
 #ifdef PIEZO_HZ
 // A simple beep-beep-beep-(pause) alarm
-static const unsigned char tone_durs[] PROGMEM = { 10, 5, 10, 5, 10, 50 };  // in 10ms units
+static const unsigned char tone_durs[] = { 10, 5, 10, 5, 10, 50 };  // in 10ms units
 #define tone_cnt (sizeof(tone_durs)/sizeof(tone_durs[0]))
 static unsigned char tone_idx;
 static unsigned long tone_last;
 #endif /* PIZEO_HZ */
+
+
 
 void setLcdBacklight(unsigned char lcdBacklight)
 {
@@ -220,7 +226,7 @@ static void storeProbeType(unsigned char probeIndex, unsigned char probeType)
 #ifdef HEATERMETER_RFM12
 static void reportRfMap(void)
 {
-  print_P(PSTR("HMRM"));
+  CmdSerial.write(("HMRM"));
   for (unsigned char i=0; i<TEMP_COUNT; ++i)
   {
     Serial_csv();
@@ -344,7 +350,7 @@ static void storeLedConf(unsigned char led, unsigned char ledConf)
   econfig_write_byte(ofs, ledConf);
 }
 
-static void toneEnable(boolean enable)
+static void toneEnable(bool enable)
 {
 #ifdef PIEZO_HZ
   if (enable)
@@ -365,10 +371,11 @@ static void toneEnable(boolean enable)
 
 static void lcdPrintBigNum(float val)
 {
+#if 0
   // good up to 3276.8
   int16_t ival = val * 10;
   uint16_t uval;
-  boolean isNeg;
+  bool isNeg;
   if (ival < 0)
   {
     isNeg = true;
@@ -411,9 +418,11 @@ static void lcdPrintBigNum(float val)
     else
       lcd.write(C_BLK);
   } while (x != 0);
+  
+#endif
 }
 
-static boolean isMenuHomeState(void)
+static bool isMenuHomeState(void)
 {
   state_t state = Menus.getState();
   return (state >= ST_HOME_FOOD1 && state <= ST_HOME_ALARM);
@@ -436,9 +445,9 @@ void updateDisplay(void)
   {
     toneEnable(true);
     if (ALARM_ID_TO_IDX(g_AlarmId) == ALARM_IDX_LOW)
-      lcdprint_P(PSTR("** ALARM LOW  **"), false);
+      lcdprint(("** ALARM LOW  **"), false);
     else
-      lcdprint_P(PSTR("** ALARM HIGH **"), false);
+      lcdprint(("** ALARM HIGH **"), false);
 
     probeIdxLow = probeIdxHigh = ALARM_ID_TO_PROBE(g_AlarmId);
   }  /* if ST_HOME_ALARM */
@@ -446,13 +455,13 @@ void updateDisplay(void)
   else if (state == ST_PITCAL)
   {
     int pit = (int)(pid.Probes[TEMP_PIT]->Temperature * 10.0f);
-    snprintf_P(buffer, sizeof(buffer), PSTR("%4uADC   %4d" DEGREE "%c"),
+    snprintf(buffer, sizeof(buffer), ("%4uADC   %4d" DEGREE "%c"),
       analogReadOver(PIN_PIT, 10),
       pit,
       pid.getUnits());
     lcd.print(buffer);
 
-    snprintf_P(buffer, sizeof(buffer), PSTR("Ref=%3u    Nz=%2u"),
+    snprintf(buffer, sizeof(buffer), ("Ref=%3u    Nz=%2u"),
       analogGetBandgapScale(),
       analogReadRange(PIN_PIT)
       );
@@ -483,12 +492,12 @@ void updateDisplay(void)
     else
       pitTemp = 0;
     if (!pid.isManualOutputMode() && !pid.Probes[TEMP_CTRL]->hasTemperature())
-      memcpy_P(buffer, LCD_LINE1_UNPLUGGED, sizeof(LCD_LINE1_UNPLUGGED));
+      memcpy(buffer, LCD_LINE1_UNPLUGGED, sizeof(LCD_LINE1_UNPLUGGED));
     else if (pid.isDisabled())
-      snprintf_P(buffer, sizeof(buffer), PSTR("Pit:%3d" DEGREE "%c  [Off]"),
+      snprintf(buffer, sizeof(buffer), ("Pit:%3d" DEGREE "%c  [Off]"),
         pitTemp, pid.getUnits());
     else if (pid.LidOpenResumeCountdown > 0)
-      snprintf_P(buffer, sizeof(buffer), PSTR("Pit:%3d" DEGREE "%c Lid%3u"),
+      snprintf(buffer, sizeof(buffer), ("Pit:%3d" DEGREE "%c Lid%3u"),
         pitTemp, pid.getUnits(), pid.LidOpenResumeCountdown);
     else
     {
@@ -503,7 +512,7 @@ void updateDisplay(void)
         c1 = '[';
         c2 = ']';
       }
-      snprintf_P(buffer, sizeof(buffer), PSTR("Pit:%3d" DEGREE "%c %c%3u%%%c"),
+      snprintf(buffer, sizeof(buffer), ("Pit:%3d" DEGREE "%c %c%3u%%%c"),
         pitTemp, pid.getUnits(), c1, pid.getPidOutput(), c2);
     }
 
@@ -525,7 +534,7 @@ void updateDisplay(void)
     if (probeIndex < TEMP_COUNT && pid.Probes[probeIndex]->hasTemperature())
     {
       loadProbeName(probeIndex);
-      snprintf_P(buffer, sizeof(buffer), PSTR("%-12s%3d" DEGREE), editString,
+      snprintf(buffer, sizeof(buffer), ("%-12s%3d" DEGREE), editString,
         (int)pid.Probes[probeIndex]->Temperature);
     }
     else
@@ -541,11 +550,11 @@ void updateDisplay(void)
   }
 }
 
-void lcdprint_P(const char *p, const boolean doClear)
+void lcdprint(const char *p, const bool doClear)
 {
   if (doClear)
     lcd.clear();
-  while (unsigned char c = pgm_read_byte(p++)) lcd.write(c);
+  lcd.print(p);
 }
 
 static void storePidParam(char which, float value)
@@ -569,7 +578,7 @@ static void storePidParam(char which, float value)
 static void outputCsv(void)
 {
 #ifdef HEATERMETER_SERIAL
-  print_P(PSTR("HMSU" CSV_DELIMITER));
+  CmdSerial.write(("HMSU" CSV_DELIMITER));
   pid.status();
   Serial_nl();
 #endif /* HEATERMETER_SERIAL */
@@ -596,15 +605,15 @@ static void printSciFloat(float f)
   }
   if (neg)
     f *= -1.0f;
-  SerialX.print(f, 7);
-  Serial_char('e');
-  SerialX.print(exponent, DEC);
+  CmdSerial.write(f);
+  CmdSerial.write('e');
+  CmdSerial.write(exponent, DEC);
 }
 
 static void reportProbeCoeff(unsigned char probeIdx)
 {
-  print_P(PSTR("HMPC" CSV_DELIMITER));
-  SerialX.print(probeIdx, DEC);
+  CmdSerial.write(("HMPC" CSV_DELIMITER));
+  CmdSerial.write( probeIdx, DEC);
   Serial_csv();
   
   TempProbe *p = pid.Probes[probeIdx];
@@ -613,7 +622,7 @@ static void reportProbeCoeff(unsigned char probeIdx)
     printSciFloat(p->Steinhart[i]);
     Serial_csv();
   }
-  SerialX.print(p->getProbeType(), DEC);
+  CmdSerial.write(p->getProbeType(), DEC);
   Serial_nl();
 }
 
@@ -651,47 +660,38 @@ static void storeProbeCoeff(unsigned char probeIndex, char *vals)
   reportProbeCoeff(probeIndex);
 }
 
-static void reboot(void)
-{
-  // Use the watchdog in case SOFTRESET isn't hooked up (e.g. HM4.0)
-  // If hoping to program via Optiboot, this won't work if the WDT trigers the reboot
-  cli();
-  WDTCSR = bit(WDCE) | bit(WDE);
-  WDTCSR = bit(WDE) | WDTO_30MS;
-  while (1) { };
-}
 
 static void reportProbeNames(void)
 {
-  print_P(PSTR("HMPN"));
+  CmdSerial.write(("HMPN"));
   for (unsigned char i=0; i<TEMP_COUNT; ++i)
   {
     loadProbeName(i);
     Serial_csv();
-    SerialX.print(editString);
+    CmdSerial.write(editString);
   }
   Serial_nl();
 }
 
 static void reportPidParams(void)
 {
-  print_P(PSTR("HMPD"));
+  CmdSerial.write(("HMPD"));
   for (unsigned char i=0; i<4; ++i)
   {
     Serial_csv();
     //printSciFloat(pid.Pid[i]);
-    SerialX.print(pid.Pid[i], 8);
+    CmdSerial.write(pid.Pid[i]);
   }
   Serial_nl();
 }
 
 static void reportProbeOffsets(void)
 {
-  print_P(PSTR("HMPO"));
+  CmdSerial.write(("HMPO"));
   for (unsigned char i=0; i<TEMP_COUNT; ++i)
   {
     Serial_csv();
-    SerialX.print(pid.Probes[i]->Offset, DEC);
+    CmdSerial.write( pid.Probes[i]->Offset, DEC);
   }
   Serial_nl();
 }
@@ -702,7 +702,7 @@ void storeAndReportProbeOffset(unsigned char probeIndex, int offset)
   reportProbeOffsets();
 }
 
-void storeAndReportProbeName(unsigned char probeIndex, char *name)
+void storeAndReportProbeName(unsigned char probeIndex, const char *name)
 {
   storeProbeName(probeIndex, name);
   reportProbeNames();
@@ -710,30 +710,29 @@ void storeAndReportProbeName(unsigned char probeIndex, char *name)
 
 static void reportVersion(void)
 {
-  print_P(PSTR("UCID" CSV_DELIMITER "HeaterMeter" CSV_DELIMITER HM_VERSION));
-  SerialX.print(HM_BOARD_REV);
+  CmdSerial.write(("UCID" CSV_DELIMITER "HeaterMeter" CSV_DELIMITER HM_VERSION));
   Serial_nl();
 }
 
 static void reportLidParameters(void)
 {
-  print_P(PSTR("HMLD" CSV_DELIMITER));
-  SerialX.print(pid.LidOpenOffset, DEC);
+  CmdSerial.write(("HMLD" CSV_DELIMITER));
+  CmdSerial.write(pid.LidOpenOffset, DEC);
   Serial_csv();
-  SerialX.print(pid.getLidOpenDuration(), DEC);
+  CmdSerial.write(pid.getLidOpenDuration(), DEC);
   Serial_nl();
 }
 
 void reportLcdParameters(void)
 {
-  print_P(PSTR("HMLB" CSV_DELIMITER));
-  SerialX.print(g_LcdBacklight, DEC);
+  CmdSerial.write(("HMLB" CSV_DELIMITER));
+  CmdSerial.write(g_LcdBacklight, DEC);
   Serial_csv();
-  SerialX.print(g_HomeDisplayMode, DEC);
+  CmdSerial.write(g_HomeDisplayMode, DEC);
   for (unsigned char i=0; i<LED_COUNT; ++i)
   {
     Serial_csv();
-    SerialX.print(ledmanager.getAssignment(i), DEC);
+    CmdSerial.write( ledmanager.getAssignment(i), DEC);
   }
   Serial_nl();
 }
@@ -769,16 +768,16 @@ static void reportProbeCoeffs(void)
 static void reportAlarmLimits(void)
 {
 #ifdef HEATERMETER_SERIAL
-  print_P(PSTR("HMAL"));
+  CmdSerial.write(("HMAL"));
   for (unsigned char i=0; i<TEMP_COUNT; ++i)
   {
     ProbeAlarm &a = pid.Probes[i]->Alarms;
     Serial_csv();
-    SerialX.print(a.getLow(), DEC);
-    if (a.getLowRinging()) Serial_char('L');
+    CmdSerial.write(a.getLow(), DEC);
+    if (a.getLowRinging()) CmdSerial.write('L');
     Serial_csv();
-    SerialX.print(a.getHigh(), DEC);
-    if (a.getHighRinging()) Serial_char('H');
+    CmdSerial.write(a.getHigh(), DEC);
+    if (a.getHighRinging()) CmdSerial.write('H');
   }
   Serial_nl();
 #endif
@@ -786,22 +785,22 @@ static void reportAlarmLimits(void)
 
 static void reportFanParams(void)
 {
-  print_P(PSTR("HMFN" CSV_DELIMITER));
-  SerialX.print(pid.getFanMinSpeed(), DEC);
+  CmdSerial.write(("HMFN" CSV_DELIMITER));
+  CmdSerial.write(pid.getFanMinSpeed(), DEC);
   Serial_csv();
-  SerialX.print(pid.getFanMaxSpeed(), DEC);
+  CmdSerial.write(pid.getFanMaxSpeed(), DEC);
   Serial_csv();
-  SerialX.print(pid.getServoMinPos(), DEC);
+  CmdSerial.write(pid.getServoMinPos(), DEC);
   Serial_csv();
-  SerialX.print(pid.getServoMaxPos(), DEC);
+  CmdSerial.write(pid.getServoMaxPos(), DEC);
   Serial_csv();
-  SerialX.print(pid.getOutputFlags(), DEC);
+  CmdSerial.write(pid.getOutputFlags(), DEC);
   Serial_csv();
-  SerialX.print(pid.getFanMaxStartupSpeed(), DEC);
+  CmdSerial.write(pid.getFanMaxStartupSpeed(), DEC);
   Serial_csv();
-  SerialX.print(pid.getFanActiveFloor(), DEC);
+  CmdSerial.write(pid.getFanActiveFloor(), DEC);
   Serial_csv();
-  SerialX.print(pid.getServoActiveCeil(), DEC);
+  CmdSerial.write(pid.getServoActiveCeil(), DEC);
   Serial_nl();
 }
 
@@ -952,7 +951,7 @@ static void setTempParam(unsigned char idx, int val)
 static void handleCommandUrl(char *URL)
 {
   unsigned char urlLen = strlen(URL);
-  if (strncmp_P(URL, PSTR("set?sp="), 7) == 0) 
+  if (strncmp(URL, ("set?sp="), 7) == 0) 
   {
     // store the units first, in case of 'O' disabling the PID output
     storePidUnits(URL[urlLen - 1]);
@@ -960,62 +959,60 @@ static void handleCommandUrl(char *URL)
     if (*(URL+7) <= '9')
       storeSetPoint(atoi(URL + 7));
   }
-  else if (strncmp_P(URL, PSTR("set?lb="), 7) == 0)
+  else if (strncmp(URL, ("set?lb="), 7) == 0)
   {
     csvParseI(URL + 7, storeLcdParam);
     reportLcdParameters();
   }
-  else if (strncmp_P(URL, PSTR("set?ld="), 7) == 0)
+  else if (strncmp(URL, ("set?ld="), 7) == 0)
   {
     csvParseI(URL + 7, storeLidParam);
     reportLidParameters();
   }
-  else if (strncmp_P(URL, PSTR("set?po="), 7) == 0)
+  else if (strncmp(URL, ("set?po="), 7) == 0)
   {
     csvParseI(URL + 7, storeProbeOffset);
     reportProbeOffsets();
   }
-  else if (strncmp_P(URL, PSTR("set?pid"), 7) == 0 && urlLen > 9)
+  else if (strncmp(URL, ("set?pid"), 7) == 0 && urlLen > 9)
   {
     float f = atof(URL + 9);
     storePidParam(URL[7], f);
     reportPidParams();
   }
-  else if (strncmp_P(URL, PSTR("set?pn"), 6) == 0 && urlLen > 8)
+  else if (strncmp(URL, ("set?pn"), 6) == 0 && urlLen > 8)
   {
     // Store probe name will only store it if a valid probe number is passed
     storeAndReportProbeName(URL[6] - '0', URL + 8);
   }
-  else if (strncmp_P(URL, PSTR("set?pc"), 6) == 0 && urlLen > 8)
+  else if (strncmp(URL, ("set?pc"), 6) == 0 && urlLen > 8)
   {
     storeProbeCoeff(URL[6] - '0', URL + 8);
   }
-  else if (strncmp_P(URL, PSTR("set?al="), 7) == 0)
+  else if (strncmp(URL, ("set?al="), 7) == 0)
   {
     csvParseI(URL + 7, storeAlarmLimits);
     reportAlarmLimits();
   }
-  else if (strncmp_P(URL, PSTR("set?fn="), 7) == 0)
+  else if (strncmp(URL, ("set?fn="), 7) == 0)
   {
     csvParseI(URL + 7, storeFanParams);
     reportFanParams();
   }
-  else if (strncmp_P(URL, PSTR("set?tt="), 7) == 0)
+  else if (strncmp(URL, ("set?tt="), 7) == 0)
   {
     Menus.displayToast(URL+7);
   }
-  else if (strncmp_P(URL, PSTR("set?tp="), 7) == 0)
+  else if (strncmp(URL, ("set?tp="), 7) == 0)
   {
     csvParseI(URL + 7, setTempParam);
   }
-  else if (strncmp_P(URL, PSTR("config"), 6) == 0)
+  else if (strncmp(URL, ("config"), 6) == 0)
   {
     reportConfig();
   }
-  else if (strncmp_P(URL, PSTR("reboot"), 5) == 0)
+  else if (strncmp(URL, ("reboot"), 5) == 0)
   {
-    reboot();
-    // reboot doesn't return
   }
 }
 #endif /* defined(HEATERMETER_SERIAL) */
@@ -1058,11 +1055,11 @@ static void rfSourceNotify(RFSource &r, unsigned char event)
 static void outputAdcStatus(void)
 {
 #if defined(HEATERMETER_SERIAL)
-  print_P(PSTR("HMAR"));
+  CmdSerial.write("HMAR");
   for (unsigned char i=0; i<NUM_ANALOG_INPUTS; ++i)
   {
     Serial_csv();
-    SerialX.print(analogReadRange(i), DEC);
+    CmdSerial.write(analogReadRange(i), DEC);
   }
   Serial_nl();
 #endif
@@ -1093,12 +1090,12 @@ static void tone_doWork(void)
 
 static void checkAlarms(void)
 {
-  boolean anyRinging = false;
+  bool anyRinging = false;
   for (unsigned char i=0; i<TEMP_COUNT; ++i)
   {
     for (unsigned char j=ALARM_IDX_LOW; j<=ALARM_IDX_HIGH; ++j)
     {
-      boolean ringing = pid.Probes[i]->Alarms.Ringing[j];
+      bool ringing = pid.Probes[i]->Alarms.Ringing[j];
       unsigned char alarmId = MAKE_ALARM_ID(i, j);
       if (ringing)
       {
@@ -1133,7 +1130,7 @@ static void eepromLoadBaseConfig(unsigned char forceDefault)
   forceDefault = forceDefault || config.base.magic != EEPROM_MAGIC;
   if (forceDefault != 0)
   {
-    memcpy_P(&config.base, &DEFAULT_CONFIG[forceDefault - 1], sizeof(__eeprom_data));
+    memcpy(&config.base, &DEFAULT_CONFIG[forceDefault - 1], sizeof(__eeprom_data));
     econfig_write_block(&config.base, 0, sizeof(__eeprom_data));
   }
   
@@ -1185,7 +1182,7 @@ static void eepromLoadProbeConfig(unsigned char forceDefault)
   {
     if (forceDefault != 0)
     {
-      memcpy_P(&config.probe, &DEFAULT_PROBE_CONFIG, sizeof( __eeprom_probe));
+      memcpy(&config.probe, &DEFAULT_PROBE_CONFIG, sizeof( __eeprom_probe));
       // Hardcoded to change the last character of the string instead of [strlen(config.name)-1]
       config.probe.name[6] = '0' + i;
       econfig_write_block(&config.probe, p, sizeof(__eeprom_probe));
@@ -1216,9 +1213,9 @@ static void blinkLed(void)
 static void serial_doWork(void)
 {
   unsigned char len = strlen(g_SerialBuff);
-  while (Serial.available())
+  while (CmdSerial.available())
   {
-    char c = Serial.read();
+    char c = CmdSerial.read();
     // support CR, LF, or CRLF line endings
     if (c == '\n' || c == '\r')  
     {
@@ -1233,14 +1230,14 @@ static void serial_doWork(void)
         len = 0;
     }
     g_SerialBuff[len] = '\0';
-  }  /* while Serial */
+  }  /* while CmdSerial */
 }
 #endif  /* HEATERMETER_SERIAL */
 
 /* Starts a debug log output message line, end with Debug_end() */
 void Debug_begin(void)
 {
-    print_P(PSTR("HMLG" CSV_DELIMITER));
+    CmdSerial.write(("HMLG" CSV_DELIMITER));
 }
 
 void publishLeds(void)
@@ -1285,7 +1282,7 @@ static void newTempsAvail(void)
 static void lcdDefineChars(void)
 {
   for (unsigned char i=0; i<8; ++i)
-    lcd.createChar_P(i, BIG_CHAR_PARTS + (i * 8));
+    lcd.createChar(i, BIG_CHAR_PARTS + (i * 8));
 }
 
 static void ledExecutor(unsigned char led, unsigned char on)
@@ -1307,20 +1304,22 @@ void hmcoreSetup(void)
   blinkLed();
   
 #ifdef HEATERMETER_SERIAL
-  Serial.begin(HEATERMETER_SERIAL);
+  CmdSerial.begin(HEATERMETER_SERIAL);
   // don't use SerialX because we don't want any preamble
-  Serial.write('\n');
+  CmdSerial.write('\n');
   reportVersion();
 #endif  /* HEATERMETER_SERIAL */
+#if 0
   // Disable Analog Comparator
   ACSR = bit(ACD);
   // Disable Digital Input on ADC pins
   DIDR0 = bit(ADC5D) | bit(ADC4D) | bit(ADC3D) | bit(ADC2D) | bit(ADC1D) | bit(ADC0D);
   // And other unused units
-  power_twi_disable();
+#endif
 
+#ifdef PIEZO_HZ
   tone4khz_init();
-
+#endif
   pid.Probes[TEMP_PIT] = &probe0;
   pid.Probes[TEMP_FOOD1] = &probe1;
   pid.Probes[TEMP_FOOD2] = &probe2;
@@ -1352,4 +1351,15 @@ void hmcoreLoop(void)
   Menus.doWork();
   tone_doWork();
   ledmanager.doWork();
+}
+
+
+int main(int argc, char **argv)
+{
+	hmcoreSetup();
+	
+	while (1)
+	{
+		hmcoreLoop();
+	}
 }

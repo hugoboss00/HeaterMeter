@@ -1,5 +1,6 @@
 // HeaterMeter Copyright 2016 Bryan Mayland <bmayland@capnbry.net>
 #include "ledmanager.h"
+#include "systemif.h"
 
 #define LED_BLINK_MILLIS 500U
 
@@ -38,7 +39,7 @@ void LedManager::doWork(void)
   for (unsigned char i=0; i<LED_COUNT; ++i)
   {
     led_status_t &a = _leds[i];
-    boolean stateChanged = false;
+    bool stateChanged = false;
 
     if (_blinkCount & 1)
     {

@@ -5,11 +5,11 @@
 
   This expect TIMER1 to a 50Hz CTC (TOP=40000) before use!
 */
-#include <Arduino.h>
 #include <stdint.h>
-#include <digitalWriteFast.h>
+#include "digitalWriteFast.h"
 #include "tone_4khz.h"
 
+#if 0
 static struct tagTimer4KHzState {
   uint16_t cnt;
 } timer4k;
@@ -49,3 +49,4 @@ void tone4khz_begin(unsigned char pin, unsigned char dur)
   timer4k.cnt = (uint16_t)dur * 8U;
   TIMSK1 |= bit(OCIE1A);
 }
+#endif

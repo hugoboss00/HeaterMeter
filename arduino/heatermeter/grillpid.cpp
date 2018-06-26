@@ -4,14 +4,24 @@
 // Fan output is 489Hz phase-correct PWM
 // Servo output is 50Hz pulse duration
 #include <math.h>
+#include <BBBiolib.h>
 #include <string.h>
-#include <util/atomic.h>
-#include <digitalWriteFast.h>
-
+#include <stdbool.h>
+#include "atomic.h"
+#include "digitalWriteFast.h"
+#include "systemif.h"
 #include "strings.h"
+#include "serial.h"
 #include "grillpid.h"
+#include "adc.h"
+#include "pwm.h"
+
 
 extern GrillPid pid;
+extern Serial CmdSerial;
+
+static Adc adc;
+static Pwm servo;
 
 // For this calculation to work, ccpm()/8 must return a round number
 #define uSecToTicks(x) ((unsigned int)(clockCyclesPerMicrosecond() / 8) * x)
@@ -21,7 +31,11 @@ extern GrillPid pid;
 
 #define DIFFMAX(x,y,d) ((x - y + d) <= (d*2U))
 
+int ADMUX = 0;
+int ADC = 0; // to be replaced by adc reading function
+
 #if defined(GRILLPID_SERVO_ENABLED)
+#if 0
 ISR(TIMER1_CAPT_vect)
 {
   unsigned int nextStep = pid.getServoStepNext(OCR1B);
@@ -46,6 +60,7 @@ ISR(TIMER1_COMPB_vect)
   digitalWriteFast(PIN_SERVO, LOW);
 }
 #endif
+#endif
 
 // ADC pin to poll between every other ADC read, with low oversampling
 #define ADC_INTERLEAVE_HIGHFREQ 0
@@ -62,10 +77,6 @@ static struct tagAdcState
   unsigned char pin_next;  // Nextnon-interleaved pin read
   unsigned long analogReads[NUM_ANALOG_INPUTS]; // Current values
   unsigned char analogRange[NUM_ANALOG_INPUTS]; // high-low on last period
-#if defined(GRILLPID_DYNAMIC_RANGE)
-  bool useBandgapReference[NUM_ANALOG_INPUTS]; // Use 1.1V reference instead of AVCC
-  unsigned int bandgapAdc;                     // 10-bit adc reading of BG with AVCC ref
-#endif
 #if defined(NOISEDUMP_PIN)
   unsigned int data[256];
 #endif
@@ -75,7 +86,7 @@ static struct tagAdcState
 unsigned char g_NoisePin = NOISEDUMP_PIN;
 #endif
 
-ISR(ADC_vect)
+void ISR_task(int ADC_vect)
 {
   if (adcState.discard != 0)
   {
@@ -93,7 +104,7 @@ ISR(ADC_vect)
       adcState.accumulator = 0;
       adcState.thisHigh = 0;
       adcState.thisLow = 0xff;
-      adcState.pin = ADMUX & 0x0f;
+      adcState.pin = ADMUX;
     }
     else if (adcState.discard == 0)
     {
@@ -117,7 +128,7 @@ ISR(ADC_vect)
     --adcState.cnt;
     unsigned int adc = ADC;
 #if defined(NOISEDUMP_PIN)
-    if ((ADMUX & 0x07) == g_NoisePin)
+    if ((ADMUX) == g_NoisePin)
       adcState.data[adcState.cnt] = adc;
 #endif
     adcState.accumulator += adc;
@@ -130,16 +141,7 @@ ISR(ADC_vect)
   }
   else
   {
-    unsigned char pin = ADMUX & 0x0f;
-#if defined(GRILLPID_DYNAMIC_RANGE)
-    if (pin > NUM_ANALOG_INPUTS)
-    {
-      // Store only the last ADC value, giving the bandgap ~25ms to stabilize
-      adcState.bandgapAdc = ADC;
-      // adcState.pin will be set to (0x4e & 0x0f) due to startup's bandgap measure + .discard code
-      adcState.pin = 0;
-    }
-#endif // GRILLPID_DYNAMIC_RANGE
+    unsigned char pin = ADMUX;
 
     // If just read the interleaved pin, advance to the next pin
     if (pin == ADC_INTERLEAVE_HIGHFREQ)
@@ -147,21 +149,8 @@ ISR(ADC_vect)
     else
       pin = ADC_INTERLEAVE_HIGHFREQ;
 
-#if defined(GRILLPID_DYNAMIC_RANGE)
-    unsigned char newref =
-      adcState.useBandgapReference[pin] ? (INTERNAL << 6) : (DEFAULT << 6);
-    unsigned char curref = ADMUX & 0xc0;
-    // If switching references, allow time for AREF cap to charge
-    if (curref != newref)
-      adcState.discard = 48;  // 48 / 9615 samples/s = 5ms
-    else
-      adcState.discard = 3;
-
-    ADMUX = newref | pin;
-#else
-    ADMUX = (DEFAULT << 6) | pin;
+    ADMUX = pin;
     adcState.discard = 3;
-#endif
   }
 }
 
@@ -187,38 +176,20 @@ unsigned char analogReadRange(unsigned char pin)
   return adcState.analogRange[pin];
 }
 
-#if defined(GRILLPID_DYNAMIC_RANGE)
-bool analogIsBandgapReference(unsigned char pin)
-{
-  return adcState.useBandgapReference[pin];
-}
-
-void analogSetBandgapReference(unsigned char pin, bool enable)
-{
-  adcState.useBandgapReference[pin] = enable;
-}
-
-unsigned int analogGetBandgapScale(void)
-{
-  return adcState.bandgapAdc;
-}
-
-#endif /* GRILLPID_DYNAMIC_RANGE */
 
 static void adcDump(void)
 {
 #if defined(NOISEDUMP_PIN)
-  static uint8_t x;
+  static unsigned char x;
   ++x;
   if (x == 5)
   {
     x = 0;
     ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0);
-    SerialX.print("HMLG,NOISE ");
+    CmdSerial.write("HMLG,NOISE ");
     for (unsigned int i=0; i<adcState.top; ++i)
     {
-      SerialX.print(adcState.data[i], DEC);
-      SerialX.print(' ');
+      CmdSerial.write(adcState.data[i], DEC);
     }
     Serial_nl();
     ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADIE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0) | bit(ADSC);
@@ -321,15 +292,6 @@ void TempProbe::calcTemp(unsigned int adcval)
     // If scale is <100 it is assumed to be mV/C with a 3.3V reference
     if (mvScale < 100.0f)
       mvScale = 3300.0f / mvScale;
-#if defined(GRILLPID_DYNAMIC_RANGE)
-    if (analogIsBandgapReference(_pin))
-    {
-      analogSetBandgapReference(_pin, adcval < (1000U * (unsigned char)pow(2, TEMP_OVERSAMPLE_BITS)));
-      mvScale /= 1023.0f / adcState.bandgapAdc;
-    }
-    else
-      analogSetBandgapReference(_pin, adcval < (300U * (unsigned char)pow(2, TEMP_OVERSAMPLE_BITS)));
-#endif
     setTemperatureC(adcval / ADCmax * mvScale);
     return;
   }
@@ -406,36 +368,27 @@ void TempProbe::setTemperatureC(float T)
 void TempProbe::status(void) const
 {
   if (hasTemperature())
-    SerialX.print(Temperature, 1);
+    CmdSerial.write(Temperature);
   else
-    Serial_char('U');
+    CmdSerial.write('U');
   Serial_csv();
 }
 
 void GrillPid::init(void)
 {
-#if defined(GRILLPID_SERVO_ENABLED)
-  pinModeFast(PIN_SERVO, OUTPUT);
+  iolib_init();
 
-  // CTC mode with ICR1 as TOP, 8 prescale, INT on COMPB and TOP (ICR
-  // Period set to SERVO_REFRESH
-  // If GrillPid is constructed statically this can't be done in the constructor
-  // because the Arduino core init is called after the constructor and will set
-  // the values back to the default
-  ICR1 = uSecToTicks(SERVO_REFRESH);
-  TCCR1A = 0;
-  TCCR1B = bit(WGM13) | bit(WGM12) | bit(CS11);
-  TIMSK1 = bit(ICIE1) | bit(OCIE1B);
+#if defined(GRILLPID_SERVO_ENABLED)
+  servo.init(BBBIO_PWMSS0, FREQ_SERVO);
 #endif
-  // Initialize ADC for free running mode at 125kHz
-#if defined(GRILLPID_DYNAMIC_RANGE)
-  // Start by measuring the bandgap reference for dynamic range scaling
-  ADMUX = (DEFAULT << 6) | 0b1110;
-#else
-  ADMUX = (DEFAULT << 6) | 0;
-#endif // GRILLPID_DYNAMIC_RANGE
-  ADCSRB = bit(ACME);
-  ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADIE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0) | bit(ADSC);
+  // Initialize ADC 
+  int adcPins[] = {0,1,2,3,4,5,6,7,8,9};
+  
+  adc.init(adcPins, NUM_ANALOG_INPUTS);
+
+  ADMUX = 0;
+//  ADCSRB = bit(ACME);
+//  ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADIE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0) | bit(ADSC);
 
   updateControlProbe();
 }
@@ -444,7 +397,7 @@ void __attribute__ ((noinline)) GrillPid::updateControlProbe(void)
 {
   // Set control to the first non-Disabled probe. If all probes are disabled, return TEMP_PIT
   Probes[TEMP_CTRL] = Probes[TEMP_PIT];
-  for (uint8_t i=0; i<TEMP_COUNT; ++i)
+  for (unsigned char i=0; i<TEMP_COUNT; ++i)
     if (Probes[i]->getProbeType() != PROBETYPE_DISABLED)
     {
       Probes[TEMP_CTRL] = Probes[i];
@@ -476,14 +429,15 @@ void GrillPid::setOutputFlags(unsigned char value)
     adcState.top = newTop;
     adcState.discard = 3;
   }
-
+#if 0
   // Timer2 Fast PWM
   TCCR2A = bit(WGM21) | bit(WGM20);
   if (bit_is_set(value, PIDFLAG_FAN_FEEDVOLT))
     TCCR2B = bit(CS20); // 62kHz
   else
     TCCR2B = bit(CS22) | bit(CS20); // 488Hz
-  // 7khz
+#endif
+// 7khz
   //TCCR2B = bit(CS21);
   // 61Hz
   //TCCR2B = bit(CS22) | bit(CS21) | bit(CS20);
@@ -568,10 +522,10 @@ void GrillPid::adjustFeedbackVoltage(void)
     _feedvoltLastOutput = constrain(newOutput, 1, 255);
 
 #if defined(GRILLPID_FEEDVOLT_DEBUG)
-    SerialX.print("HMLG,");
-    SerialX.print("SMPS: ffeed="); SerialX.print(ffeedback, DEC);
-    SerialX.print(" out="); SerialX.print(newOutput, DEC);
-    SerialX.print(" fdesired="); SerialX.print(_lastBlowerOutput, DEC);
+    CmdSerial.write("HMLG,");
+    CmdSerial.write("SMPS: ffeed="); CmdSerial.write(ffeedback, DEC);
+    CmdSerial.write(" out="); CmdSerial.write(newOutput, DEC);
+    CmdSerial.write(" fdesired="); CmdSerial.write(_lastBlowerOutput, DEC);
     Serial_nl();
 #endif
   }
@@ -654,7 +608,7 @@ inline void GrillPid::commitFanOutput(void)
   }
   adjustFeedbackVoltage();
 }
-
+#if 0
 unsigned int GrillPid::getServoStepNext(unsigned int curr)
 {
 #if defined(GRILLPID_SERVO_ENABLED)
@@ -679,9 +633,11 @@ unsigned int GrillPid::getServoStepNext(unsigned int curr)
     return curr + SERVO_STEP;
   else
     return curr - SERVO_STEP;
+#else
+	return 0;
 #endif
 }
-
+#endif
 inline void GrillPid::commitServoOutput(void)
 {
 #if defined(GRILLPID_SERVO_ENABLED)
@@ -697,6 +653,7 @@ inline void GrillPid::commitServoOutput(void)
 
   // Get the output speed in 10x usec by LERPing between min and max
   output = mappct(output, _servoMinPos, _servoMaxPos);
+#if 0
   unsigned int targetTicks = uSecToTicks(10U * output);
 #if defined(SERVO_MIN_THRESH)
   if (_servoHoldoff < 0xff)
@@ -706,7 +663,7 @@ inline void GrillPid::commitServoOutput(void)
     return;
 
   // and only trigger the servo if a large movement is needed or holdoff expired
-  boolean isBigMove = !DIFFMAX(_servoTarget, targetTicks, uSecToTicks(SERVO_MIN_THRESH));
+  bool isBigMove = !DIFFMAX(_servoTarget, targetTicks, uSecToTicks(SERVO_MIN_THRESH));
   if (isBigMove || _servoHoldoff > SERVO_MAX_HOLDOFF)
 #endif
   {
@@ -718,6 +675,7 @@ inline void GrillPid::commitServoOutput(void)
     _servoHoldoff = 0;
   }
 #endif
+#endif
 }
 
 inline void GrillPid::commitPidOutput(void)
@@ -727,7 +685,7 @@ inline void GrillPid::commitPidOutput(void)
   commitServoOutput();
 }
 
-boolean GrillPid::isAnyFoodProbeActive(void) const
+bool GrillPid::isAnyFoodProbeActive(void) const
 {
   unsigned char i;
   for (i=TEMP_FOOD1; i<TEMP_COUNT; i++)
@@ -778,11 +736,11 @@ void GrillPid::status(void) const
 {
 #if defined(GRILLPID_SERIAL_ENABLED)
   if (isDisabled())
-    Serial_char('U');
+    CmdSerial.write('U');
   else if (isManualOutputMode())
-    Serial_char('-');
+    CmdSerial.write('-');
   else
-    SerialX.print(getSetPoint(), DEC);
+    CmdSerial.write(getSetPoint(), DEC);
   Serial_csv();
 
   // Always output the control probe in the first slot, usually TEMP_PIT
@@ -791,17 +749,17 @@ void GrillPid::status(void) const
   for (unsigned char i = TEMP_FOOD1; i<TEMP_COUNT; ++i)
     Probes[i]->status();
 
-  SerialX.print(getPidOutput(), DEC);
+  CmdSerial.write(getPidOutput(), DEC);
   Serial_csv();
-  SerialX.print((int)PidOutputAvg, DEC);
+  CmdSerial.write((int)PidOutputAvg, DEC);
   Serial_csv();
-  SerialX.print(LidOpenResumeCountdown, DEC);
+  CmdSerial.write(LidOpenResumeCountdown, DEC);
   Serial_csv();
-  SerialX.print(getFanSpeed(), DEC);
+  CmdSerial.write(getFanSpeed(), DEC);
 #endif
 }
 
-boolean GrillPid::doWork(void)
+bool GrillPid::doWork(void)
 {
   unsigned int elapsed = millis() - _lastWorkMillis;
   if (elapsed < (TEMP_MEASURE_PERIOD / TEMP_OUTADJUST_CNT))
@@ -873,14 +831,14 @@ void GrillPid::pidStatus(void) const
   TempProbe const* const pit = Probes[TEMP_CTRL];
   if (pit->hasTemperature())
   {
-    print_P(PSTR("HMPS" CSV_DELIMITER));
+    CmdSerial.write("HMPS" CSV_DELIMITER);
     for (unsigned char i=PIDB; i<=PIDD; ++i)
     {
-      SerialX.print(_pidCurrent[i], 2);
+      CmdSerial.write(_pidCurrent[i], DEC);
       Serial_csv();
     }
 
-    SerialX.print(pit->Temperature - pit->TemperatureAvg, 2);
+    CmdSerial.write(pit->Temperature - pit->TemperatureAvg, DEC);
     Serial_nl();
   }
 #endif

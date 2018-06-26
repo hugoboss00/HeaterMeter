@@ -13,7 +13,6 @@
 extern "C" {
 #endif
 
-#define eeprom_is_busy() bit_is_set(EECR, EEPE)
 
 uint8_t econfig_read_byte(const void *_src);
 uint16_t econfig_read_word(const void *_src);

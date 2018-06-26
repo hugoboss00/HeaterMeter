@@ -1,7 +1,6 @@
 // HeaterMeter Copyright 2016 Bryan Mayland <bmayland@capnbry.net>
-#include "Arduino.h"
-#include <avr/pgmspace.h>
 #include "menus.h"
+#include "systemif.h"
 
 MenuSystem::MenuSystem(const menu_definition_t *defs, const menu_transition_t *trans,
   const buttonread_t reader)
@@ -17,10 +16,10 @@ inline unsigned long MenuSystem::getTimeoutDuration(void) const
 
 inline handler_t MenuSystem::getHandler(void) const
 {
-  return (m_currMenu) ? (handler_t)pgm_read_word(&m_currMenu->handler) : 0;
+  return (m_currMenu) ? (handler_t)m_currMenu->handler : 0;
 }
 
-inline boolean MenuSystem::getHasLongpress(button_t button) const
+inline bool MenuSystem::getHasLongpress(button_t button) const
 {
   return (m_currMenu) ? pgm_read_byte(&m_currMenu->longpress) & button : false;
 }
@@ -103,6 +102,7 @@ void MenuSystem::doWork(void)
       if (m_buttonRepeatCnt < 0xff)
         ++m_buttonRepeatCnt;
       if (m_buttonState != mbsNone)
+	  {
         if (m_buttonState == mbsLongCheck && m_buttonRepeatCnt > 3)
         {
           button |= BUTTON_LONG;
@@ -113,6 +113,7 @@ void MenuSystem::doWork(void)
           m_lastStateChange = now;
           return; // waiting for longpress/keyup
         }
+	  }
     }
     else
     {
