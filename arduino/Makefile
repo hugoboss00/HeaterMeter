@@ -14,10 +14,10 @@ OBJECTS += $(patsubst %.cpp, %.o, $(wildcard */*.cpp))
 HEADERS = $(wildcard */*.h)
 
 %.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -Wno-pointer-to-int-cast -c $< -o $@
 
 %.o: %.cpp $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -fpermissive -c $< -o $@
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
