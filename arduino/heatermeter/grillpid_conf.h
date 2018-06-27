@@ -12,9 +12,6 @@
 #define TEMP_CTRL   4 // Just a copy of one of the others
 #define TEMP_COUNT  4
 
-#define APIN_FFEEDBACK 1
-#define PIN_BLOWER  3
-#define PIN_SERVO   8
 
 // Use oversample/decimation to increase ADC resolution to 2^(10+n) bits n=[0..4]
 #define TEMP_OVERSAMPLE_BITS 4
@@ -49,3 +46,5 @@
 #if HM_BOARD_REV == 'A'
   #undef GRILLPID_SERVO_ENABLED
 #endif
+
+#include "pindef.h"

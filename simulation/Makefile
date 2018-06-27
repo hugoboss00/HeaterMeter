@@ -1,8 +1,8 @@
-TARGET = hm
-LIBS = -lm -lstdc++ -lrt -pthread -lBBBio
+TARGET = sim_mon simset
+LIBS = -lm -lstdc++ -lrt
 CC = gcc
-CFLAGS = -I ../../../bbbio/BBBIOlib/BBBio_lib -g -Wall
-LFLAGS = -Wall -L ../../../bbbio/BBBIOlib
+CFLAGS = -g -Wpointer-to-int-cast
+LFLAGS = -Wall
 
 .PHONY: default all clean
 
@@ -16,16 +16,16 @@ HEADERS = $(wildcard */*.h)
 %.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.cpp $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
-
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) $(LFLAGS) $(LIBS) -o $@
+sim_mon: sim_mon.o
+	$(CC) sim_mon.o $(LFLAGS) $(LIBS) -o $@
+
+simset: sim_set.o
+	$(CC) sim_set.o $(LFLAGS) $(LIBS) -o $@
 
 clean:
-	-rm -f *.o $(OBJECTS)
+	-rm -f *.o
 	-rm -f $(TARGET)
 
 	

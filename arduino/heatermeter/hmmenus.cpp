@@ -2,6 +2,7 @@
 #include "hmcore.h"
 #include "grillpid.h"
 #include "strings.h"
+#include "adc.h"
 
 static state_t menuHome(button_t button);
 static state_t menuSetpoint(button_t button);
@@ -112,7 +113,7 @@ char editString[17];
 
 static button_t readButton(void)
 {
-  unsigned char button = analogReadOver(PIN_BUTTONS, 8);
+  unsigned char button = adc.analogReadOver(PIN_BUTTONS, 8);
   if (button == 0)
     return BUTTON_NONE;
 

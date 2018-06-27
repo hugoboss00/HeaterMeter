@@ -17,6 +17,7 @@
 #include "tone_4khz.h"
 #include "systemif.h"
 #include "serial.h"
+#include "adc.h"
 
 static TempProbe probe0(PIN_PIT);
 static TempProbe probe1(PIN_FOOD1);
@@ -26,7 +27,7 @@ GrillPid pid;
 Serial CmdSerial;
 
 #ifdef SHIFTREGLCD_NATIVE
-ShiftRegLCDNative lcd(PIN_SERVO, PIN_LCD_CLK, TWO_WIRE, 2);
+ShiftRegLCDNative lcd(LCD_DATA, PIN_LCD_CLK, TWO_WIRE, 2);
 #else
 ShiftRegLCD lcd(PIN_LCD_CLK, 2);
 #endif /* SHIFTREGLCD_NATIVE */
@@ -79,7 +80,7 @@ static const struct __eeprom_data {
 } DEFAULT_CONFIG[]  = {
  {
   EEPROM_MAGIC,  // magic
-  225,  // setpoint
+  120,  // setpoint
   6,    // lid open offset %
   240,  // lid open duration
   { 0.0f, 4.0f, 0.02f, 5.0f },  // PID constants
@@ -456,14 +457,14 @@ void updateDisplay(void)
   {
     int pit = (int)(pid.Probes[TEMP_PIT]->Temperature * 10.0f);
     snprintf(buffer, sizeof(buffer), ("%4uADC   %4d" DEGREE "%c"),
-      analogReadOver(PIN_PIT, 10),
+      adc.analogReadOver(PIN_PIT, 10),
       pit,
       pid.getUnits());
     lcd.print(buffer);
 
     snprintf(buffer, sizeof(buffer), ("Ref=%3u    Nz=%2u"),
       analogGetBandgapScale(),
-      analogReadRange(PIN_PIT)
+      adc.analogReadRange(PIN_PIT)
       );
     lcd.setCursor(0, 1);
     lcd.print(buffer);
@@ -1052,6 +1053,7 @@ static void rfSourceNotify(RFSource &r, unsigned char event)
 }
 #endif /* HEATERMETER_RFM12 */
 
+extern int hm_AdcPins[];
 static void outputAdcStatus(void)
 {
 #if defined(HEATERMETER_SERIAL)
@@ -1059,7 +1061,7 @@ static void outputAdcStatus(void)
   for (unsigned char i=0; i<NUM_ANALOG_INPUTS; ++i)
   {
     Serial_csv();
-    CmdSerial.write(analogReadRange(i), DEC);
+    CmdSerial.write(adc.analogReadRange(hm_AdcPins[i]), DEC);
   }
   Serial_nl();
 #endif
@@ -1071,14 +1073,14 @@ static void tone_doWork(void)
   if (tone_idx == 0xff)
     return;
   unsigned int elapsed = millis() - tone_last;
-  unsigned int dur = pgm_read_byte(&tone_durs[tone_idx]) * 10;
+  unsigned int dur = tone_durs[tone_idx] * 10;
   if (elapsed > dur)
   {
     tone_last = millis();
     tone_idx = (tone_idx + 1) % tone_cnt;
     if (tone_idx % 2 == 0)
     {
-      dur = pgm_read_byte(&tone_durs[tone_idx]) * 10;
+      dur = tone_durs[tone_idx] * 10;
       tone4khz_begin(PIN_ALARM, dur);
       setLcdBacklight(0x80 | 0);
     }
@@ -1290,10 +1292,10 @@ static void ledExecutor(unsigned char led, unsigned char on)
   switch (led)
   {
     case 0:
-      digitalWrite(PIN_WIRELESS_LED, on);
+      digitalWrite(PIN_WIRELESS_LED, on?1:0);
       break;
     default:
-      lcd.digitalWrite(led - 1, on);
+      lcd.lcd_digitalWrite(led - 1, on);
       break;
   }
 }
@@ -1309,13 +1311,8 @@ void hmcoreSetup(void)
   CmdSerial.write('\n');
   reportVersion();
 #endif  /* HEATERMETER_SERIAL */
-#if 0
-  // Disable Analog Comparator
-  ACSR = bit(ACD);
-  // Disable Digital Input on ADC pins
-  DIDR0 = bit(ADC5D) | bit(ADC4D) | bit(ADC3D) | bit(ADC2D) | bit(ADC1D) | bit(ADC0D);
-  // And other unused units
-#endif
+
+
 
 #ifdef PIEZO_HZ
   tone4khz_init();
@@ -1361,5 +1358,6 @@ int main(int argc, char **argv)
 	while (1)
 	{
 		hmcoreLoop();
+		delayMicroseconds(1000);
 	}
 }

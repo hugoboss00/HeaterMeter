@@ -20,8 +20,11 @@
 extern GrillPid pid;
 extern Serial CmdSerial;
 
-static Adc adc;
+Adc adc;
 static Pwm servo;
+int hm_AdcPins[] = {PIN_PIT,PIN_FOOD1,PIN_FOOD2,PIN_AMB,APIN_FFEEDBACK,PIN_BUTTONS};
+
+
 
 // For this calculation to work, ccpm()/8 must return a round number
 #define uSecToTicks(x) ((unsigned int)(clockCyclesPerMicrosecond() / 8) * x)
@@ -61,141 +64,6 @@ ISR(TIMER1_COMPB_vect)
 }
 #endif
 #endif
-
-// ADC pin to poll between every other ADC read, with low oversampling
-#define ADC_INTERLEAVE_HIGHFREQ 0
-
-static struct tagAdcState
-{
-  unsigned char top;       // Number of samples to take per reading
-  unsigned char cnt;       // count left to accumulate
-  unsigned long accumulator;  // total
-  unsigned char discard;   // Discard this many ADC readings
-  unsigned char thisHigh;  // High this period
-  unsigned char thisLow;   // Low this period
-  unsigned char pin;       // pin for which these readings were made
-  unsigned char pin_next;  // Nextnon-interleaved pin read
-  unsigned long analogReads[NUM_ANALOG_INPUTS]; // Current values
-  unsigned char analogRange[NUM_ANALOG_INPUTS]; // high-low on last period
-#if defined(NOISEDUMP_PIN)
-  unsigned int data[256];
-#endif
-} adcState;
-
-#if defined(NOISEDUMP_PIN)
-unsigned char g_NoisePin = NOISEDUMP_PIN;
-#endif
-
-void ISR_task(int ADC_vect)
-{
-  if (adcState.discard != 0)
-  {
-    --adcState.discard;
-    // Actually do the calculations for the previous set of reads while in the
-    // discard period of the next set of reads. Break the code up into chunks
-    // of roughly the same number of clock cycles.
-    if (adcState.discard == 2)
-    {
-      adcState.analogReads[adcState.pin] = adcState.accumulator;
-      adcState.analogRange[adcState.pin] = adcState.thisHigh - adcState.thisLow;
-    }
-    else if (adcState.discard == 1)
-    {
-      adcState.accumulator = 0;
-      adcState.thisHigh = 0;
-      adcState.thisLow = 0xff;
-      adcState.pin = ADMUX;
-    }
-    else if (adcState.discard == 0)
-    {
-      if (adcState.pin == ADC_INTERLEAVE_HIGHFREQ)
-      {
-        adcState.cnt = 4;
-        adcState.pin_next = (adcState.pin_next + 1) % NUM_ANALOG_INPUTS;
-        // Notice this doesn't check if pin_next is ADC_INTERLEAVE_HIGHFREQ, which
-        // means ADC_INTERLEAVE_HIGHFREQ will be checked twice in a row each loop
-        // Not worth the extra code to make that not happen
-      }
-      else
-        adcState.cnt = adcState.top;
-
-    }
-    return;
-  }
-
-  if (adcState.cnt != 0)
-  {
-    --adcState.cnt;
-    unsigned int adc = ADC;
-#if defined(NOISEDUMP_PIN)
-    if ((ADMUX) == g_NoisePin)
-      adcState.data[adcState.cnt] = adc;
-#endif
-    adcState.accumulator += adc;
-
-    unsigned char a = adc >> 2;
-    if (a > adcState.thisHigh)
-      adcState.thisHigh = a;
-    if (a < adcState.thisLow)
-      adcState.thisLow = a;
-  }
-  else
-  {
-    unsigned char pin = ADMUX;
-
-    // If just read the interleaved pin, advance to the next pin
-    if (pin == ADC_INTERLEAVE_HIGHFREQ)
-      pin = adcState.pin_next;
-    else
-      pin = ADC_INTERLEAVE_HIGHFREQ;
-
-    ADMUX = pin;
-    adcState.discard = 3;
-  }
-}
-
-unsigned int analogReadOver(unsigned char pin, unsigned char bits)
-{
-  unsigned long a;
-  ATOMIC_BLOCK(ATOMIC_FORCEON)
-  {
-    a = adcState.analogReads[pin];
-  }
-
-  // If requesting the interleave pin, scale down from reduced resolution
-  if (pin == ADC_INTERLEAVE_HIGHFREQ)
-    return a >> (12 - bits);
-
-  // Scale up to 256 samples then divide by 2^4 for 14 bit oversample
-  unsigned int retVal = a * 16 / adcState.top;
-  return retVal >> (14 - bits);
-}
-
-unsigned char analogReadRange(unsigned char pin)
-{
-  return adcState.analogRange[pin];
-}
-
-
-static void adcDump(void)
-{
-#if defined(NOISEDUMP_PIN)
-  static unsigned char x;
-  ++x;
-  if (x == 5)
-  {
-    x = 0;
-    ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0);
-    CmdSerial.write("HMLG,NOISE ");
-    for (unsigned int i=0; i<adcState.top; ++i)
-    {
-      CmdSerial.write(adcState.data[i], DEC);
-    }
-    Serial_nl();
-    ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADIE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0) | bit(ADSC);
-  }
-#endif
-}
 
 static void calcExpMovingAverage(const float smooth, float *currAverage, float newValue)
 {
@@ -382,13 +250,7 @@ void GrillPid::init(void)
   servo.init(BBBIO_PWMSS0, FREQ_SERVO);
 #endif
   // Initialize ADC 
-  int adcPins[] = {0,1,2,3,4,5,6,7,8,9};
-  
-  adc.init(adcPins, NUM_ANALOG_INPUTS);
-
-  ADMUX = 0;
-//  ADCSRB = bit(ACME);
-//  ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADIE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0) | bit(ADSC);
+  adc.init(hm_AdcPins, NUM_ANALOG_INPUTS);
 
   updateControlProbe();
 }
@@ -424,11 +286,8 @@ void GrillPid::setOutputFlags(unsigned char value)
     newTop = 160;
   else
     newTop = 255;
-  ATOMIC_BLOCK(ATOMIC_FORCEON)
-  {
-    adcState.top = newTop;
-    adcState.discard = 3;
-  }
+
+  adc.setTop(newTop);
 #if 0
   // Timer2 Fast PWM
   TCCR2A = bit(WGM21) | bit(WGM20);
@@ -516,7 +375,7 @@ void GrillPid::adjustFeedbackVoltage(void)
   {
     // _lastBlowerOutput is the voltage we want on the feedback pin
     // adjust _feedvoltLastOutput until the ffeedback == _lastBlowerOutput
-    unsigned char ffeedback = analogReadOver(APIN_FFEEDBACK, 8);
+    unsigned char ffeedback = adc.analogReadOver(APIN_FFEEDBACK, 8);
     int error = ((int)_lastBlowerOutput - (int)ffeedback);
     int newOutput = (int)_feedvoltLastOutput + (error / 2);
     _feedvoltLastOutput = constrain(newOutput, 1, 255);
@@ -779,7 +638,7 @@ bool GrillPid::doWork(void)
   {
     if (Probes[i]->getProbeType() == PROBETYPE_INTERNAL ||
         Probes[i]->getProbeType() == PROBETYPE_TC_ANALOG)
-      Probes[i]->calcTemp(analogReadOver(Probes[i]->getPin(), 10+TEMP_OVERSAMPLE_BITS));
+      Probes[i]->calcTemp(adc.analogReadOver(Probes[i]->getPin(), 10+TEMP_OVERSAMPLE_BITS));
     Probes[i]->processPeriod();
   }
 
@@ -821,7 +680,7 @@ bool GrillPid::doWork(void)
 #endif
 
   commitPidOutput();
-  adcDump();
+  adc.adcDump();
   return true;
 }
 

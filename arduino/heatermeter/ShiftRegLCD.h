@@ -46,6 +46,12 @@
 #define SR_RS_BIT 0x04
 #define SR_EN_BIT 0x80
 
+#define LSBFIRST 0
+#define MSBFIRST 1
+
+#define HIGH 1
+#define LOW  0
+
 class ShiftRegLCDBase {
 public:
   void clear();
@@ -76,12 +82,13 @@ public:
   virtual void print(const char c)=0;
   
   // Two pins not used for the LCD but are sent to the shiftreg
-  void digitalWrite(uint8_t pin, uint8_t val);
+  void lcd_digitalWrite(uint8_t pin, uint8_t val);
 protected:
   void init(uint8_t lines, uint8_t font);
-  virtual void send(uint8_t, uint8_t) const = 0;
-  virtual void send4bits(uint8_t) const = 0;
-  virtual void updateAuxPins(void) const = 0;
+  virtual void send(uint8_t, uint8_t)  = 0;
+  virtual void send4bits(uint8_t)  = 0;
+  virtual void updateAuxPins(void)  = 0;
+  void shiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val) ;
   ShiftRegLCDBase(void) {};
 
   uint8_t _auxPins;
@@ -108,9 +115,9 @@ public:
 	virtual void print(const char *str);
 	virtual void print(const char c);
 protected:
-  virtual void send(uint8_t, uint8_t) const;
-  virtual void send4bits(uint8_t) const;
-  virtual void updateAuxPins(void) const;
+  virtual void send(uint8_t, uint8_t) ;
+  virtual void send4bits(uint8_t) ;
+  virtual void updateAuxPins(void) ;
 private:
   void ctor(uint8_t srdata, uint8_t srclockd, uint8_t enable, uint8_t lines, uint8_t font);
   uint8_t _srdata_pin;
