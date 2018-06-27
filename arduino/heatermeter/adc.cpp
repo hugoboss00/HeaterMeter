@@ -4,9 +4,11 @@
 #include "systemif.h"
 #include <BBBiolib.h>
 #include <pthread.h>
+#include <sys/mman.h>
 #include "adc.h"
 #include "pinmux.h"
 
+extern unsigned int *adctsc_ptr;
 
 Adc::Adc()
 {
@@ -222,15 +224,25 @@ void Adc::init(int pin[], int adccount)
 	 *	Note : This mode handle SIGALRM using signale() function in BBBIO_ADCTSC_work();
 	 */
 	printf("ADC init %d\n", adccount);
-	BBBIO_ADCTSC_module_ctrl(BBBIO_ADC_WORK_MODE_TIMER_INT, clk_div);
+	if ((adctsc_ptr != NULL) &&( adctsc_ptr != MAP_FAILED))
+	{
+		BBBIO_ADCTSC_module_ctrl(BBBIO_ADC_WORK_MODE_TIMER_INT, clk_div);
+	}
+	else
+	{
+		printf("BBBIO ADC Init FAILED\n");
+	}
 
 	for (i = 0; i < adccount; i++)
 	{
 		int bbbPin = getBBBPin(pin[i]);
 		adcState[bbbPin].enabled = 1;
 		printf("ADC init channel ADC%d\n", i);
-		BBBIO_ADCTSC_channel_ctrl(bbbPin, BBBIO_ADC_STEP_MODE_SW_CONTINUOUS, open_dly, sample_dly, \
+		if ((adctsc_ptr != NULL) &&( adctsc_ptr != MAP_FAILED))
+		{
+			BBBIO_ADCTSC_channel_ctrl(bbbPin, BBBIO_ADC_STEP_MODE_SW_CONTINUOUS, open_dly, sample_dly, \
 				BBBIO_ADC_STEP_AVG_1, m_buffer[i], BUFFER_SIZE);
+		}
 	}
 
 	pthread_create(&adc_thread, NULL, &adc_loop, this);
