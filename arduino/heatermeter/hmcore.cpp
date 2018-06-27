@@ -1217,23 +1217,23 @@ static void blinkLed(void)
 static void serial_doWork(void)
 {
   unsigned char len = strlen(g_SerialBuff);
-  while (CmdSerial.available())
+  char c = CmdSerial.read();
+  while (c != 0)
   {
-    char c = CmdSerial.read();
     // support CR, LF, or CRLF line endings
-    if (c == '\n' || c == '\r')  
-    {
-      if (len != 0 && g_SerialBuff[0] == '/')
-        handleCommandUrl(&g_SerialBuff[1]);
-      len = 0;
-    }
-    else {
-      g_SerialBuff[len++] = c;
-      // if the buffer fills without getting a newline, just reset
-      if (len >= sizeof(g_SerialBuff))
-        len = 0;
-    }
-    g_SerialBuff[len] = '\0';
+		if (c == '\n' || c == '\r')  
+		{
+		  if (len != 0 && g_SerialBuff[0] == '/')
+			handleCommandUrl(&g_SerialBuff[1]);
+		  len = 0;
+		}
+		else {
+		  g_SerialBuff[len++] = c;
+		  // if the buffer fills without getting a newline, just reset
+		  if (len >= sizeof(g_SerialBuff))
+			len = 0;
+		}
+		g_SerialBuff[len] = '\0';
   }  /* while CmdSerial */
 }
 #endif  /* HEATERMETER_SERIAL */

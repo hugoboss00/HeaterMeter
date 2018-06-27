@@ -3,10 +3,16 @@
 #include <string.h>
 #include <inttypes.h>
 #include "systemif.h"
-
+#include <unistd.h>
+#include <sys/select.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <time.h>
 
 Serial::Serial()
 {
+	fcntl (0, F_SETFL, O_NONBLOCK);
 }
 
 int Serial::available()
@@ -48,6 +54,29 @@ void Serial::write(float val)
 	
 char Serial::read()
 {
-	return 0;
+      int c=0;
+#if 0
+    struct termios orig_term_attr;
+    struct termios new_term_attr;
+
+    /* set the terminal to raw mode */
+    tcgetattr(fileno(stdin), &orig_term_attr);
+    memcpy(&new_term_attr, &orig_term_attr, sizeof(struct termios));
+    new_term_attr.c_lflag &= ~(ECHO|ICANON);
+    new_term_attr.c_cc[VTIME] = 0;
+    new_term_attr.c_cc[VMIN] = 0;
+    tcsetattr(fileno(stdin), TCSANOW, &new_term_attr);
+
+    /* read a character from the stdin stream without blocking */
+    /*   returns EOF (-1) if no character is available */
+    c = fgetc(stdin);
+
+    /* restore the original terminal attributes */
+    tcsetattr(fileno(stdin), TCSANOW, &orig_term_attr);
+
+	  if (c != 0)
+	  printf("SERIAL:read %c\n", c);
+#endif
+      return(c);
 }
 
