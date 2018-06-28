@@ -1,5 +1,6 @@
 //#include "client_http.hpp"
 #include "server_http.hpp"
+#include <time.h>
 
 // Added for the json-example
 #define BOOST_SPIRIT_THREADSAFE
@@ -81,7 +82,7 @@ int main() {
   // Unless you do more heavy non-threaded processing in the resources,
   // 1 thread is usually faster than several threads
   HttpServer server;
-  server.config.port = 8080;
+  server.config.port = 8088;
 
   // Add resources using path-regex and method-string, and an anonymous function
   // POST-example for the path /string, responds the posted string
@@ -134,7 +135,8 @@ int main() {
   ]
 #endif
 	  
-		pt.put("time", "1405429467");
+		unsigned long nowtime = time(NULL);
+		pt.put("time", nowtime);
 		pt.put("set", "88");
 		pt.put("lid", "35");
 		fan.put("c","0");

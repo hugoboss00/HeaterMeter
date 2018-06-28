@@ -1,31 +1,31 @@
-TARGET = hm
+
 LIBS = -lm -lstdc++ -lrt -pthread -lBBBio
 CC = gcc
-CFLAGS = -I ../../../bbbio/BBBIOlib/BBBio_lib -g -Wall
-LFLAGS = -Wall -L ../../../bbbio/BBBIOlib
+CFLAGS = -I ../../bbbio/BBBIOlib/BBBio_lib -g -Wall
+LFLAGS = -Wall -L ../../bbbio/BBBIOlib
 
 .PHONY: default all clean
 
-default: $(TARGET)
+default: hm
 all: default
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard */*.c))
-OBJECTS += $(patsubst %.cpp, %.o, $(wildcard */*.cpp))
-HEADERS = $(wildcard */*.h)
 
-%.o: %.c $(HEADERS)
+HMOBJECTS += $(patsubst %.cpp, %.o, $(wildcard src/*.cpp))
+HMHEADERS = $(wildcard src/*.h)
+
+%.o: %.c $(HMHEADERS)
 	$(CC) $(CFLAGS) -Wno-pointer-to-int-cast -c $< -o $@
 
-%.o: %.cpp $(HEADERS)
+%.o: %.cpp $(HMHEADERS)
 	$(CC) $(CFLAGS) -fpermissive -c $< -o $@
 
-.PRECIOUS: $(TARGET) $(OBJECTS)
+.PRECIOUS: hm $(HMOBJECTS)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) $(LFLAGS) $(LIBS) -o $@
+hm: $(HMOBJECTS)
+	$(CC) $(HMOBJECTS) $(LFLAGS) $(LIBS) -o $@
 
 clean:
-	-rm -f *.o $(OBJECTS)
-	-rm -f $(TARGET)
+	-rm -f *.o $(HMOBJECTS)
+	-rm -f hm
 
 	

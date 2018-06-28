@@ -10,6 +10,8 @@
 <script src="https://cdn.jsdelivr.net/excanvas/r3/excanvas.compiled.js"></script>
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.min.js"></script>
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.time.js"></script>
+<script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.selection.js"></script>
+<script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.canvas.js"></script>
 <!--[if lte IE 8]><script language="javascript" type="text/javascript" src="js/excanvas.min.js"></script><![endif]-->
 <script language="javascript" type="text/javascript">
 var lastUpdateUtc;
@@ -106,8 +108,9 @@ $(document).ready(function()
     //var now = +new Date();
     //if ((now - 10000) < (o.time * 1000))
      //   connectionSuccess(o);
+	tstatSuccess("");
 
-	refreshGraphData();
+	//refreshGraphData();
 });
 
 $(window).load(function ()
@@ -318,7 +321,6 @@ function refreshGraphData()
         if (!this.noclear) this.data = [];
     });
     
-	tstatSuccess("");
     var range = $("#rangeselect").val();
     var params = {nancnt: range};
     $("#dlcsv").attr("href", "lm/hist?dl=1&" + $.param(params));
@@ -695,9 +697,9 @@ function checkRefreshGraphOrUpdate()
     // the RRD holds up to 480 points and the graph holds
     // less due to point consolidation, so best case
     // scenario 24pts * 10sec per poll = 4mins
-    if (max > 504)
-        refreshGraphData()
-    else
+//    if (max > 504)
+//        refreshGraphData()
+//    else
         updateGraph();
 }
 

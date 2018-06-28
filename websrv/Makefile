@@ -1,5 +1,6 @@
 TARGET = libwebserver.a
-LIBS = -lboost_system -lboost_thread -lboost_filesystem -lboost_chrono -lboost_date_time -lboost_atomic -lpthread
+LIBS = -lpthread -lboost_system -lboost_filesystem 
+#-lboost_chrono -lboost_date_time -lboost_atomic  -lboost_thread
 CC = g++
 CFLAGS = -std=c++11 -g -Wall
 LFLAGS = -Wall
