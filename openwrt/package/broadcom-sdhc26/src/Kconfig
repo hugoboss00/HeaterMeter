@@ -1,3 +1,0 @@
-config BROADCOM_SDHC26
-  tristate "MMHC/SDHC optimized driver - BRCM47xx"
-
