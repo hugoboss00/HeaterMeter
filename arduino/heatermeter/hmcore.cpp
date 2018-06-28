@@ -85,13 +85,14 @@ static const struct __eeprom_data {
   120,  // setpoint
   6,    // lid open offset %
   240,  // lid open duration
-  { 0.0f, 4.0f, 0.02f, 5.0f },  // PID constants
+/*  { 0.0f, 4.0f, 0.02f, 5.0f },  // original PID constants */
+  { 0.0f, 10.0f, 0.005f, 10.0f },  // PID constants
   PIDMODE_STARTUP,  // PID mode
   50,   // lcd backlight (%)
 #ifdef HEATERMETER_RFM12
   { RFSOURCEID_ANY, RFSOURCEID_ANY, RFSOURCEID_ANY, RFSOURCEID_ANY },  // rfMap
 #endif
-  'F',  // Units
+  'C',  // Units
   0,    // min fan speed
   100,  // max fan speed
   _BV(PIDFLAG_FAN_FEEDVOLT), // PID output flags bitmask
@@ -119,11 +120,12 @@ static const struct  __eeprom_probe DEFAULT_PROBE_CONFIG  = {
   {
     //2.4723753e-4,2.3402251e-4,1.3879768e-7  // Maverick ET-72/73
     //5.2668241e-4,2.0037400e-4,2.5703090e-8 // Maverick ET-732
+	5.36924e-4,1.91396e-4,6.60399e-8 // hst:Maverick ET-732 (Honeywell R-T Curve 4)
     //8.98053228e-4,2.49263324e-4,2.04047542e-7 // Radio Shack 10k
     //1.14061e-3,2.32134e-4,9.63666e-8 // Vishay 10k NTCLE203E3103FB0
     //7.2237825e-4,2.1630182e-4,9.2641029e-8 // EPCOS100k
     //8.1129016e-4,2.1135575e-4,7.1761474e-8 // Semitec 104GT-2
-    7.3431401e-4,2.1574370e-4,9.5156860e-8 // ThermoWorks Pro-Series
+    //7.3431401e-4,2.1574370e-4,9.5156860e-8 // ThermoWorks Pro-Series
     ,1.0e+4
   }
 };
