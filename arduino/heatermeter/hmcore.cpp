@@ -1234,6 +1234,7 @@ static void serial_doWork(void)
 			len = 0;
 		}
 		g_SerialBuff[len] = '\0';
+		c = CmdSerial.read();
   }  /* while CmdSerial */
 }
 #endif  /* HEATERMETER_SERIAL */

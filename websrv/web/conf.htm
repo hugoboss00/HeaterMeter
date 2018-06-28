@@ -1,0 +1,778 @@
+<%+header%>
+<% require "lmclient" %>
+<script src="<%=resource%>/js/jquery-all.js" type="text/javascript"></script>
+<script type="text/javascript">//<![CDATA[
+var configHash = <%= LmClient():query("$LMCF") or "{}" %>;
+var apikey = "<%= uci.cursor():get("linkmeter", "api", "key") %>"
+var rfInterval;
+var ignoreConfigUrlUpdates;
+var coeffPresets = [
+  {"name": "ET-72/73", "desc": "Maverick Industries", "stein": "2.4723753e-04,2.3402251e-04,1.3879768e-07"},
+  {"name": "ET-732", "desc": "Maverick Industries", "stein": "5.2668241e-04,2.0037400e-04,2.5703090e-08"},
+  {"name": "ET-735", "desc": "Maverick Industries", "stein": "7.5714216e-4,1.8829450e-4,1.4440251e-9"},
+  {"name": "TX-1001X-OP", "desc": "Thermoworks Pro-Series", "stein": "7.3431401e-4,2.1574370e-4,9.5156860e-8"},
+  {"name": "Vishay 10k", "desc": "Part NTCLE203E3103FB0", "stein": "1.14061e-3,2.32134e-4,9.63666e-8"},
+  {"name": "iGrill", "desc": "iGrill Probe", "stein": "0.7739251279e-3,2.088025997e-4,1.154400438e-7"}
+  //{"name": "RadioShack 10k", "desc": "Part 271-110A", "stein": "8.9805316e-4,2.4926333e-4,2.0404753e-7"},
+  //{"name": "IKEA Fantast", "desc": "Article Number: 801.004.06", "stein": "0.0012555249,1.5671315e-4,3.2210954e-7"}
+  //{"name": "EPCOS 100k", "desc": "Beta 3950", "stein": "7.2237825e-4,2.1630182e-4,9.2641029e-8"}
+  //{"name": "Semitec", "desc": "Part 104GT-2", "stein": "8.1129016e-4,2.1135575e-4,7.1761474e-8"}
+];
+
+$(function ()
+{
+  $("input,select").on("change", configElemChange);
+  loadCoeffPresets();
+  configToForm();
+});
+$(window).load(windowLoaded);
+
+function windowLoaded()
+{
+  rfInterval = window.setInterval(queryRfNodes, 10000);
+  queryRfNodes();
+}
+
+function loadCoeffPresets()
+{
+  var opts = [];
+  $.each(coeffPresets, function (i,o) {
+    opts.push('<option value="' + i + '">' + o.name + '</option>');
+  });
+  opts.push('<option value="' + coeffPresets.length + '">Custom</option>');
+  opts = opts.join('');
+  $(".pcp").append(opts)
+    .off("change")
+    .change(coeffPresetChanged);
+}
+
+function coeffPresetChanged()
+{
+  var name = this.id.substr(3);
+  var val = parseInt($(this).val());
+  if (val < coeffPresets.length)
+  {
+    $("#disppcc" + name).hide();
+    // Setting one coefficient with a commatext sets them all
+    $("#pca" + name).val(coeffPresets[val].stein)
+      .trigger("change");
+    $("#pcad" + name).html(coeffPresets[val].desc);
+  }
+  else
+  {
+    $("#disppcc" + name).show();
+    $("#pcad" + name).html('');
+  }
+}
+
+function coeffIsCloseEnough(x, y)
+{
+  // If the value is within 0.0001% that's probably it
+  return (Math.abs(x - y) / x) < 1.0e-6;
+}
+
+function checkCoeffForPresets()
+{
+  // Because the microcontroller has to parse a single precision float value
+  // then convert it back to a string, the coefficient values shift slightly
+  // off their preset value by a tiny amount.
+  for (var probenum=0; probenum<4; ++probenum)
+  {
+    var name = probenum.toString();
+    var a = parseFloat(configHash["pca"+name]);
+    var b = parseFloat(configHash["pcb"+name]);
+    var c = parseFloat(configHash["pcc"+name]);
+    var result = coeffPresets.length;
+    for (var i=0; i<coeffPresets.length; ++i)
+    {
+      var steinstrs = coeffPresets[i].stein.split(',');
+      if (steinstrs.length < 3)
+        continue;
+
+      var steinflts = steinstrs.map(parseFloat);
+      if (coeffIsCloseEnough(steinflts[0], a) &&
+        coeffIsCloseEnough(steinflts[1], b) &&
+        coeffIsCloseEnough(steinflts[2], c))
+      {
+        result = i;
+
+        // Store the preset value back into the configHash so
+        // the value looks identical in configChangedHash()
+        configHash["pca"+name] = steinstrs[0];
+        configHash["pcb"+name] = steinstrs[1];
+        configHash["pcc"+name] = steinstrs[2];
+        break;
+      }
+    }
+    $("#pcp"+name).val(result).trigger("change");
+  } /* for probenum */
+}
+
+function queryRfNodes()
+{
+  // If no probetypes are set to RF12 (option 2) then exit
+  if ($("select.pt option[value='2']:selected").length == 0)
+    return;
+    
+  $.ajax({
+    type: "GET",
+    url: "<%=build_url("lm/rfstatus")%>",
+    dataType: "json",
+    timeout: 8000,
+    success: refreshRfNodes
+  });
+}
+
+function refreshRfNodes(o)
+{
+  var container = $("#rfnodes");
+  container.empty();
+  var hasNodes = false;
+  // Put the receiver first and all others in numeric order
+  o.sort(function (a,b) { 
+    if (a.id == 255)
+      return -256;
+    else if (b.id == 255)
+      return 256;
+    else
+      return a.id - b.id; 
+  });
+  for (var i=0; i<o.length; ++i)
+  {
+    var name
+    var desc;
+    var img;
+    var title;
+    if (o[i].id == 127)
+      continue;
+    else if (o[i].id == 255)
+    {
+      var noise = o[i].rssi - 128;
+      name = "Receiver";
+      desc = 'Qual:<span class="' + ((noise < 0) ? 'bad">' : 'good">+') + 
+        noise + '</span>';
+      img = 4;
+      title = "Base";
+    }
+    else
+    {
+      name = "Node " + o[i].id;
+      desc = "Batt:" + (o[i].lobatt ? '<span class="bad">Low</span>' :
+        '<span class="good">Ok</span>') + " New:" + 
+        (o[i].reset ? '<span class="good">Yes</span>' : 'No');
+      img = o[i].rssi + 1;
+      title = "Signal " + o[i].rssi + "/3";
+    }
+    
+    container.append(
+      '<li><div class="rfstatus" title="' + title +
+      '" style="background-position: ' + (img * -16) +
+      'px" /><div style="float:right"><h3>' + name +
+      '</h3>' + desc + '</div></li>');
+      
+    hasNodes = true;
+  }
+  if (hasNodes)
+    container.parent().show();
+}
+
+function typeChanged()
+{
+  var name = this.id.substr(2);
+  $("#disppc" + name).toggle(this.value != "0" && this.value != "3");
+  $("#disppcr" + name).toggle(this.value != "0");
+  $("#disppo" + name).toggle(this.value != "0");
+  $("#dispprf" + name).toggle(this.value == "2");
+  // Resist is used for analog thermocouple mV/C
+  $("#pcr" + name).siblings("label").html(this.value == "3" ? "mV/C" : "Resist");
+
+  // If switching to 'Thermistor', default to 10k if was 5
+  if (this.value == "1" && $("#pcr" + name).val() == "5")
+    $("#pcr" + name).val("10000");
+  // If switching to 'RF' and no node number is filled in, default to 'any'
+  else if (this.value == "2" && $("#prfn" + name).val() == "")
+    $("#prfa" + name).prop("checked", true).trigger("change");
+  // If switching to 'Thermocouple', default to 5 mV/C if was 10k
+  else if (this.value == "3" && $("#pcr" + name).val() == "10000")
+    $("#pcr" + name).val("5");
+
+  // Chain the standard event handler after this one
+  configElemChange.call(this);
+}
+
+function isProbeId(hay, need)
+{
+  return (hay.length == need.length + 1) && 
+    (hay.substr(0, need.length) == need);
+}
+
+function configHashToForm()
+{
+  configHash["set_apikey"] = apikey; // not at all hacky
+  for (var k in configHash)
+  {
+    var elem = $("#" + k);
+    if (elem == null)
+      continue;
+    var val = configHash[k];
+
+    if (isProbeId(k, "pcurr"))
+    {
+      if (val != null)
+        elem.html("current temperature " + val.toFixed(1) + "&#176;");
+      else
+        elem.html("off");
+    }
+    else if (k == "ucid")
+      elem.html(val);
+    else if (k == "cerr")
+      elem.html('<a href="https://github.com/CapnBry/HeaterMeter/wiki/Serial-checksum-errors" target="hmdocs">Serial checksum errors</a>: ' + val);
+    else if (val != null)
+      elem.val(val);
+    else
+      elem.val("");
+      
+    if (isProbeId(k, "pt"))
+      elem.off("change").on("change", typeChanged).trigger("change");
+    else if (isProbeId(k, "prfn"))
+      $("#prfa" + k.substr(4))
+        .prop("checked", val == 127);
+    else if (isProbeId(k, "pall") || isProbeId(k, "palh"))
+      $("#pale" + k.substr(3))
+        .prop("checked", val > 0);
+    else if (isProbeId(k, "le"))
+    {
+      if (val == 255) val = 127;
+      $("#les" + k.substr(2))
+        .val(val & 0x7f);
+      $("#lei" + k.substr(2))
+        .prop("checked", val & 0x80);
+    }
+    else if (k == "oflag")
+    {
+      setupCheckboxBitmask(k, val);
+      $("#oflag4").val((parseInt(val) >> 4) & 0x01); // mode
+      $("#oflag5").val(parseInt(val) & 0x60); // line noise
+    }
+    else if (k == "smin" || k == "smax")
+      $("#" + k + "X")
+        .val(val * 10);
+  }
+}
+
+function configElemChange()
+{
+  var name = this.id;
+  if (this.className == "pc")
+  {
+    name = name.substr(3);
+    var values = this.value.split(',');
+    if (values.length >= 3)
+    {
+      $("#pca"+name).val(values[0]);
+      $("#pcb"+name).val(values[1]);
+      $("#pcc"+name).val(values[2]);
+      if (values.length >= 4)
+        $("#pcr"+name).val(values[3]);
+    }
+  }
+  else if (isProbeId(name, "prfa"))
+  {
+    name = "prfn" + name.substr(4);
+    var value;
+    if ($(this).is(":checked"))
+      value = "127";
+    else
+      value = configHash[name];
+    $("#" + name).val(value);
+  }
+  else if (isProbeId(name, "prfn"))
+  {
+    name = "#prfa" + name.substr(4);
+    $(name).prop("checked", $(this).val() == "127");
+  }
+  else if (isProbeId(name, "palel") || isProbeId(name, "paleh"))
+  {
+    name = "pal" + name.substr(4);
+    var value = $("#" + name).val();
+    if ($(this).is(":checked"))
+      value = value < 0 ? -value : value;
+    else
+      value = value > 0 ? -value : value;
+    $("#" + name).val(value);
+  }
+  else if (isProbeId(name, "pall") || isProbeId(name, "palh"))
+  {
+    name = "#pale" + name.substr(3);
+    $(name).prop("checked", $(this).val() > 0);
+  }
+  else if (isProbeId(name, "les") || isProbeId(name, "lei"))
+  {
+    var target = "#le" + name.substr(3);
+    var val = $("#les" + name.substr(3)).val();
+    if ($("#lei" + name.substr(3)).is(":checked"))
+      val |= 0x80;
+    $(target).val(val);
+  }
+  else if (name == "oflag5")
+  {
+    // oflag5 is line noise filter
+    var val = $("#oflag").val();
+    val = (val & ~0x60) | parseInt($(this).val());
+    $("#oflag").val(val);
+  }
+  else if (isProbeId(name, "oflag"))
+  {
+    var idx = +name.substr(5);
+    var val = $("#oflag").val();
+    var thisval =
+      // oflag4 is PWM/Voltage dropdown
+      ((idx == 4) && ($(this).val() == "1")) ||
+      ((idx != 4) && $(this).is(":checked"));
+    if (thisval)
+      val |= (1 << idx);
+    else
+      val &= ~(1 << idx);
+    $("#oflag").val(val);
+  }
+  else if (name == "sminX" || name == "smaxX")
+    $("#" + name.substr(0, 4))
+      .val(Math.round($(this).val() / 10));
+
+  updateUpdateUrl();
+}
+
+function setupCheckboxBitmask(k, v)
+{
+  for (i=0; i<8; ++i)
+  {
+    var elem = $("#" + k + i)
+    if (elem)
+      elem.prop("checked", v & (1 << i));
+  }
+}
+
+function configToForm()
+{
+  if (typeof(configHash.ucid) == "undefined")
+  {
+    $("#allconfig").hide();
+    $("#noconfig").show();
+  }
+  else
+  { 
+    $("#noconfig").hide();
+    $("#allconfig").show();
+    ignoreConfigUrlUpdates = true;
+    configHashToForm();
+    checkCoeffForPresets();
+    ignoreConfigUrlUpdates = false;
+    updateConfigUrl("#fullurl", configHash);
+    updateConfigUrl("#updateurl", {});
+  }
+}
+
+function updateUpdateUrl()
+{
+  updateConfigUrl("#updateurl", configChangedHash());
+}
+
+function configChangedHash()
+{
+  var r = {};
+  for (var k in configHash)
+  { 
+    var elem = $("#"+k);
+    if (elem == null)
+      continue;
+    if (isProbeId(k, "pcurr"))
+      continue;
+    var val = elem.val();
+    if (isProbeId(k, "prfn") && val == "")
+      val = null;
+    if (val != configHash[k])
+      r[k] = val;
+  }
+  
+  return r;
+}
+
+function csvItems(h, dest, uritarget, srcs)
+{
+  var r = uritarget + "=";
+  var cntCommas = 0;
+  var hasVal = false;
+  for (var i=0; i<srcs.length; ++i)
+  {
+    var val;
+    if (typeof(srcs[i]) == "function")
+      val = srcs[i]();
+    else 
+      val = h[srcs[i]];
+    if (val != null)
+    {
+      while (cntCommas < i)
+      {
+        r += ",";
+        ++cntCommas;
+      }
+      r += encodeURIComponent(val);
+      hasVal = true;
+    }
+  }
+
+  if (hasVal)
+    dest.push(r);  
+}
+
+function getProbeTypeForSend(h, i)
+{
+  var ptype = $("#pt"+i).val();
+  if (ptype == "2")
+  {
+    if (h["prfn"+i] == null)
+      return null;
+    var nodeId = $("#prfn"+i).val();
+    if (nodeId)
+      return parseInt(nodeId) + 128;
+  }
+  else
+    return h["pt"+i];
+}
+
+function updateConfigUrl(divname, h)
+{
+  if (ignoreConfigUrlUpdates) return;
+
+  var aValues = new Array();
+  var STATIC_MAP = [ "pn0", "pn1", "pn2", "pn3", 
+    "sp", "pidp", "pidi", "pidd", "set_apikey" ];
+  for (var k in h)
+  {
+    if ($.inArray(k, STATIC_MAP) != -1)
+      aValues.push(k + "=" + encodeURIComponent(h[k]));
+  }
+  
+  csvItems(h, aValues, "lb", ["lb", "lbn", "le0", "le1", "le2"]);
+  csvItems(h, aValues, "ld", ["lo", "ld"]);
+  csvItems(h, aValues, "po", ["po0", "po1", "po2", "po3"]);
+  csvItems(h, aValues, "al", ["pall0", "palh0", "pall1", "palh1",
+    "pall2", "palh2", "pall3", "palh3"]);
+  csvItems(h, aValues, "fn", ["fmin", "fmax", "smin", "smax", "oflag", "fsmax", "fflor", "sceil"]);
+  for (var i=0; i<4; ++i)
+    csvItems(h, aValues, "pc"+i, ["pca"+i, "pcb"+i, "pcc"+i, "pcr"+i, 
+      function () { return getProbeTypeForSend(h, i); } ]);
+ 
+  var elem = $(divname);
+  if (aValues.length > 0) 
+  {
+    aValues.sort();
+    var s = aValues.join(" &amp;");
+    var url = '<%=build_url("admin/lm/set")%>?' + aValues.join("&");
+    if (divname == "#updateurl")
+    {
+      elem.html('<a href="#"/>').children(":first").html(s);
+      var fn = (function (urlval) {
+          return function () { return ifrmTarget(urlval); }
+        })(url);
+      elem.add(':button[name="cbi.apply"]').unbind("click").click(fn);
+    }
+    else
+      elem.html(s).attr("href", url);
+  }
+  else
+    // This is always #updateurl because #fullurl doesnalways has aValues
+    elem.html("none").add(':button[name="cbi.apply"]').off("click");
+}
+
+var frameLoadFired; // hack to prevent multiple "load" callbacks per iframe load
+function ifrmTarget(url,title)
+{
+  clearInterval(rfInterval);
+  if (arguments.length < 2)
+    title = "Updating configuration...";
+    
+  frameLoadFired = false;
+  $("#overlay_ifrm")
+    .on("load", function () { setTimeout(ifrmLoaded, 2000); })
+    .attr("src", url);
+
+  $("#dialog-title").text(title);
+  $("#dialog-overlay").show();
+  $("#dialog-container").show("fast");
+  return false;
+}
+
+function ifrmLoaded()
+{
+  if (frameLoadFired) return;
+  frameLoadFired = true;
+  apikey = $("#set_apikey").val();
+  $.get("<%=build_url("lm/conf")%>",
+    function (o) { configHash = o; configToForm(); windowLoaded(); })
+    .fail(function () { window.location.reload(); })
+    .always(ifrmHide);
+}
+
+function ifrmHide()
+{
+  $("#dialog-container").hide("fast", 
+    function () { $("#dialog-overlay").hide(); });
+  $("#overlay_ifrm").unbind().attr("src", "javascript:false;");
+}
+
+function newApiKey()
+{
+  var key = "";
+  while (key.length < 32)
+    key += Math.random().toString(16).slice(2)
+  $("#set_apikey").val(key.slice(-32))
+    .trigger("change");
+}
+
+//]]></script>
+<style>
+  .pn { width: 120px !important; }
+  .pc { width: 120px !important; }
+  .pt { width: 122px !important; }
+  .pcp { width: 122px !important; }
+  .good { color: #0c0; }
+  .bad { color: #c00; }
+  .pconfig { vertical-align: top; width: 25%; }
+  .ptitle { padding: 4px; text-align: center; font-size: large; }
+  .pcurr { text-align: center; color: #ccc; font-size: small; }
+  td.pconfig label { width: 4em; display: inline-block; }
+  .pnum0 { background: #e73; }
+  .pnum1 { background: #6c3; }
+  .pnum2 { background: #297; }
+  .pnum3 { background: #789; }
+  .pcpreset { font-size: x-small; text-align: center; position: relative; }
+  .rfstatus { float: left; width: 16px; height: 16px; 
+    background-image: url('<%=resource%>/rf.png'); }
+  div.cbi-value-last { border-bottom: none; }
+  a.nodest { text-decoration: none; }
+  ul#rfnodes { list-style-type: none; margin-left: 0 !important; }
+  ul#rfnodes li { float: left; border: 1px dotted #bbb;
+    margin-right: 1em; padding-right: 0.5em; }
+  ul.led { list-style-type: none; margin-left: 0 !important; }
+  ul.led li { display: inline-block; margin-right: 10px; position: relative; }
+  ul.led label { position: absolute; right: 0; }
+  div.circle { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    border: 1px solid gray; }
+  #dialog-overlay { width: 100%; height: 100%; position: fixed; 
+    top: 0px; left: 0px; display: none; background-color: #000; 
+    opacity: 0.6; z-index: 1; }
+  #dialog-container { background-color: #f5f5f5; width: 480px; height: 200px;
+    border: 4px solid #4A6B7C; padding: 10px; border-radius: 10px;
+    position: fixed; z-index: 2; top: 100px; display: none;
+    left: 50%; margin-left: -240px; }
+  #cerr { color: #f00; }
+  #cerr a { text-decoration: none; color: #f00; }
+  #cerr a:hover { text-decoration: underline; }
+</style>
+<h3>HeaterMeter Configuration
+[<a href="https://github.com/CapnBry/HeaterMeter/wiki/Configuration-WebUI-Documentation"
+target="hmdocs">Help</a>]</h3>
+<div id="allconfig" style="display: none;">
+<p>Adjust the configuration of the HeaterMeter microcontroller by modifying the
+values in these fields.
+You can store a configuration by bookmarking the "Full configuration" link.
+The look of the Home page can be modified using the
+<a href="<%=build_url("admin/lm/usercss")%>">user CSS</a> tool.</p>
+
+<form method="GET" action="#">
+<fieldset class="cbi-section" id="cbi-lm-probes">
+<legend>Probe Setup</legend>
+
+<table style="width: 100%;"><tr>
+<% for i = 0, 3 do %>
+<td class="pconfig">
+<div class="ptitle pnum<%=i%>">Probe <%=i%></div>
+<div class="pcurr" id="pcurr<%=i%>"></div>
+<div class="cbi-value"><label>Name</label><input type="text" maxlength="12" class="pn" id="pn<%=i%>"/></div>
+<div class="cbi-value"><label>Type</label><select class="pt" id="pt<%=i%>">
+  <option value="0">Disabled</option>
+  <option value="1">Thermistor</option>
+  <option value="2">RF12 Wireless</option>
+  <option value="3">Thermocouple</option>
+</select></div>
+<div id="disppc<%=i%>">
+  <div><b>Probe Coefficients</b></div>
+  <div class="cbi-value"><label><a class="nodest" href="https://github.com/CapnBry/HeaterMeter/wiki/HeaterMeter-Probes">Preset</a></label><select class="pcp" id="pcp<%=i%>">
+    </select><div id="pcad<%=i%>" class="pcpreset"></div>
+  </div>
+  <div id="disppcc<%=i%>" style="display: none">
+    <div class="cbi-value"><label>A</label><input type="text" class="pc" id="pca<%=i%>"/></div>
+    <div class="cbi-value"><label>B</label><input type="text" class="pc" id="pcb<%=i%>"/></div>
+    <div class="cbi-value"><label>C</label><input type="text" class="pc" id="pcc<%=i%>"/></div>
+  </div>
+</div>
+  <div class="cbi-value" id="disppcr<%=i%>"><label>Resist</label><input type="text" maxlength="6" id="pcr<%=i%>" style="width: 4em;"/></div>
+  <div class="cbi-value" id="disppo<%=i%>"><label>Offset</label><input type="text" maxlength="3" id="po<%=i%>" style="width: 2em;"/></div>
+<div id="dispprf<%=i%>">
+  <div><b>RF12 Configuration</b></div>
+  <div class="cbi-value cbi-value-last"><label>Node</label>
+    <input type="text" maxlength="3" id="prfn<%=i%>" style="width: 2em;"/>
+    <label><input type="checkbox" id="prfa<%=i%>" class="prfa"/> Any</label>
+  </div>
+</div>
+</td>
+<% end %>
+</tr></table>
+</fieldset>
+
+<fieldset class="cbi-section" id="cbi-lm-rf" style="display: none;">
+<legend>Available RF12 Transmitters</legend>
+<div class="cbi-section-descr">Visible lmremote and La Crosse IT+ RF transmitters
+available for use as probe sensors. Set the probe type to "RF12 Wireless" an
+enter the node number shown below in the Node field. IT+ transmitters get new IDs each
+time they are restarted.</div>
+<ul id="rfnodes">
+</ul>
+</fieldset>
+
+<fieldset class="cbi-section" id="cbi-lm-pid">
+<legend>PID Output Parameters</legend>
+  <div class="cbi-value">
+    Proportional <input type="text" maxlength="12" id="pidp" style="width: 5em;"/>
+    Integral <input type="text" maxlength="12" id="pidi" style="width: 5em;"/>
+    Derivative <input type="text" maxlength="12" id="pidd" style="width: 5em;"/>
+  </div>
+  <div class="cbi-value">
+    <input type="hidden" id="oflag"/>
+    Fan output
+    <select id="oflag4" style="width: 6em;">
+      <option value="0">Pulse</option>
+      <option value="1">Voltage</option>
+    </select>
+    on above <input type="text" maxlength="3" id="fflor" style="width: 2em;"/>%
+    min <input type="text" maxlength="3" id="fmin" style="width: 2em;"/>% max
+      <input type="text" maxlength="3" id="fmax" style="width: 2em;"/>% startup max
+      <input type="text" maxlength="3" id="fsmax" style="width: 2em;"/>%
+    <label><input type="checkbox" id="oflag0"/> Invert output</label>
+  </div>
+  <div class="cbi-value">
+    Servo pulse duration
+    <input type="hidden" id="smin"/>
+      <input type="text" maxlength="4" id="sminX" style="width: 3em;"/>us -
+    <input type="hidden" id="smax"/>
+      <input type="text" maxlength="4" id="smaxX" style="width: 3em;"/>us,
+    fully open at <input type="text" maxlength="3" id="sceil" style="width: 2em;"/>%
+    <label><input type="checkbox" id="oflag1"/> Invert output</label>
+  </div>
+  <div class="cbi-value cbi-value-last">
+    A/C input line noise filter
+    <select id="oflag5" style="width: 6em;">
+      <option value="0">Off</option>
+      <option value="32">50Hz</option>
+      <option value="64">60Hz</option>
+    </select>
+  </div>
+</fieldset>
+
+<fieldset class="cbi-section" id="cbi-lm-lcd">
+<legend>LCD / LED Display</legend>
+  <div class="cbi-value">
+    Backlight <input type="text" maxlength="3" id="lb" style="width: 2em;"/>%
+    <select id="lbn" style="width: 12em;">
+      <option value="255">2-line Home</option>
+      <option value="254">4-line Home</option>
+      <option value="0">Large Home: Probe 0</option>
+      <option value="1">Large Home: Probe 1</option>
+      <option value="2">Large Home: Probe 2</option>
+      <option value="3">Large Home: Probe 3</option>
+    </select>
+  </div>
+  <div class="cbi-value cbi-value-last">
+  <ul class="led">
+<% for i=0,2 do 
+    local clr = (i == 0) and "red" or (i == 1) and "gold" or "greenyellow" %>
+    <li><div class="circle" style="background: <%=clr%>"></div>
+    LED <%=i+1%>
+    <label>Invert <input type="checkbox" id="lei<%=i%>"/></label>
+    <br/>
+    <input type="hidden" id="le<%=i%>"/>
+    <select id="les<%=i%>" style="width: 11em;">
+      <option value="0">Off</option>
+      <option value="1">Alarm 0 Low</option>
+      <option value="2">Alarm 0 High</option>
+      <option value="3">Alarm 1 Low</option>
+      <option value="4">Alarm 1 High</option>
+      <option value="5">Alarm 2 Low</option>
+      <option value="6">Alarm 2 High</option>
+      <option value="7">Alarm 3 Low</option>
+      <option value="8">Alarm 3 High</option>
+      <option value="14">Any Alarm Ringing</option>
+      <option value="9">RF Data Received</option>
+      <option value="10">Lid Open</option>
+      <option value="11">Output > 0%</option>
+      <option value="13">Output = Max</option>
+      <option value="12">Pit Temp Reached</option>
+      <option value="15">Pit Startup Mode</option>
+      <option value="16">Pit Recovery Mode</option>
+      <option value="127">Unset</option>
+    </select>
+    </li>
+<% end %>
+  </ul>
+  </div>
+</fieldset>
+
+<fieldset class="cbi-section" id="cbi-lm-lid">
+<legend>Lid Open Detection</legend>
+  Activate at <input type="text" maxlength="3" id="lo" style="width: 2em;"/>% below setpoint.
+  Continue for <input type="text" maxlength="4" id="ld" style="width: 3em;"/> seconds or until temperature returns to normal.
+</fieldset>
+
+<fieldset class="cbi-section" id="cbi-lm-setpoint">
+<legend>Pit Target Temperature</legend>
+  Setpoint <input type="text" maxlength="4" id="sp" style="width: 3em;"/><br/>
+  Include the suffix 'F' or 'C' to change units. Changing units does not
+  scale the PID parameters, which should be adjusted manually.
+</fieldset>
+
+<fieldset class="cbi-section" id="cbi-lm-ucid">
+<legend>HeaterMeter Information</legend>
+<div class="cbi-value">API key
+  <input type="password" maxlength="32" id="set_apikey" style="font-family: monospace" />
+  <img src="<%=resource%>/cbi/reload.gif" style="vertical-align:middle" title="Reveal/hide password" onclick="var e = document.getElementById('set_apikey'); e.type = (e.type=='password') ? 'text' : 'password';" />
+  <input type="button" class="cbi-button cbi-button-apply" onclick="newApiKey()" value="New"/>
+</div>
+<div class="cbi-value cbi-value-last">Version <span id="ucid"></span><br/><span id="cerr"></span></div>
+</fieldset>
+
+<div class="cbi-page-actions">
+<input type="button" name="cbi.apply" value="Save &amp; Apply"
+  class="cbi-button cbi-button-apply" accesskey="s" title="Access key: S"/>
+<input type="button" onclick="configToForm();" value="Reset to current"
+  class="cbi-button cbi-button-reset"/>
+<input type="button" value="Reboot AVR" class="cbi-button cbi-input-reload"
+  onclick="ifrmTarget('<%=build_url("admin/lm/reboot")%>','Reboot');"/>
+</div>
+</form>
+
+<h3>Update URL<img src="<%=resource%>/cbi/reload.gif" alt="refresh" onclick="updateUpdateUrl();"/></h3>
+<div id="updateurl" style="font-family: monospace"></div>
+
+<h3>Full configuration URL</h3>
+<div style="font-family: monospace"><a id="fullurl"></a></div>
+
+<h3>Raw set command</h3>
+Pass a direct 'set' command to linkmeterd for sending to HeaterMeter (e.g.
+set the LCD backlight to 50% by entering lb=50 here).
+<form method="GET" action="<%=build_url("admin/lm/set")%>">
+<input name="rawset" type="text" size="64" />
+<input type="submit" value="Set" class="cbi-button cbi-button-apply"/>
+</form>
+
+<div id="dialog-overlay"></div>
+<div id="dialog-container">
+  <div id="dialog-title" style="text-align: center;"></div>
+  <iframe id="overlay_ifrm" style="width: 100%; height: 100%; border: 0;"></iframe>
+</div>
+</div>
+
+<div id="noconfig" style="display: none;">
+<%+linkmeter/noconfig%>
+</div>
+<%+footer%>

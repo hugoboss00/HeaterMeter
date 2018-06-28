@@ -14,7 +14,7 @@ public:
 	void write(int val, int base);
 	void write(float val);
 	char read();
-	
+//	int inputAvailable();	
 	
 };
 
