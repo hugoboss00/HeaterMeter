@@ -54,10 +54,11 @@ string string_format( const std::string& format, Args ... args )
   ]
 #endif
 
+static int counter = 0;
 void addProbe(int i, ptree &pt)
 {
 	ptree probe,alarm;
-	int temp = 70 + i;
+	int temp = 70 + i + counter;
 	string buf = string_format("Probe %d",i);
 	probe.put("n", buf);
 	probe.put("c", temp);
@@ -79,7 +80,7 @@ void addProbes(ptree &pt)
 		addProbe(i, temps);
 	}
 	pt.add_child("temps",temps);
-	
+	counter = (counter + 1)%20;
 	
 }
 
@@ -235,7 +236,7 @@ void *do_server(void *) {
   // Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
   server.default_resource["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     try {
-      auto web_root_path = boost::filesystem::canonical("web");
+      auto web_root_path = boost::filesystem::canonical("websrv/web");
       auto path = boost::filesystem::canonical(web_root_path / request->path);
       // Check if path is within web_root_path
       if(distance(web_root_path.begin(), web_root_path.end()) > distance(path.begin(), path.end()) ||

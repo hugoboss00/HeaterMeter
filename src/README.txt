@@ -1,4 +1,13 @@
-HeaterMeter Instructions
+Grill-O-Mat
+
+**** WORK IN PROGRESS ****
+**** CURRENTLY NOT IN A WORKING STATE *****
+
+Grill-O-Mat is a temperature monitoring and controlling solution for BBQ Grills.
+It is based on source code from HeaterMeter (https://github.com/CapnBry/HeaterMeter), BBBIOLib (https://github.com/VegetableAvenger/BBBIOlib) and Simple Web Server (https://github.com/eidheim/Simple-Web-Server)
+It runs on a BeagleBoard Black. 
+ 
+Instructions
 
 Home Status Screen
 While on the home status screen, the top line of the LCD contains the pit temperature and fan speed.  The bottom line rotates between active food probes and the HeaterMeter internal temperature probe.  While in Automatic Control Mode, the Up and Down buttons will quickly scroll the bottom line between probes without havting to wait for them to rotate automatically.
@@ -27,11 +36,8 @@ When operating in automatic mode at fan speeds below 10%, the fan will run in a 
 
 == Source Modification and Configuration == 
 Most configuration is found in hmcore.h.  There defines used to control the inclusion of some features.  To disable them insert // before the item you'd like to disable.  This "comments out" the define and prevents it from being processed.
-HEATERMETER_NETWORKING - Enable the WiFi and web server code.  The code is designed to use AsyncLabs's WiShield 1.0/2.0 or YellowJacket 1.0.  If your WiFi shield does not have a dataflash chip on it, make sure you disable both the DFLASH_* defines.
 HEATERMETER_SERIAL (baud)- Enable per-period temperature updates to be sent out the serial port as well as configuration changes via serial.  The serial configuration protocol is handlde using the same URLs as ther web server, sent via serial, terminated with CR/CRLF/LF.
 HEATERMETER_RFM12 (band) - Enable the RFM12 device server.
-DFLASH_SERVING - Enable serving web pages from the dataflash chip present on the WiShield.  Requires HEATERMETER_NETWORKING.
-USE_EXTERNAL_VREF - If enabled, use the Vref pin voltage as the reference when doing ADC measurments instead of the internal 5V reference.
 PIEZO_HZ (hertz) - Peak output frequency of the piezo alarm attached to the system. If not defined, build without sound support.
 SHIFTREGLCD_NATIVE - If defined, use original ShiftRegLCD code instead of SPIShiftRegLCD. "Native" mode is needed for HeaterMeter PCB version 3.1 and below.
 

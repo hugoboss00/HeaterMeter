@@ -4,9 +4,10 @@ CC = gcc
 CFLAGS = -I ../../bbbio/BBBIOlib/BBBio_lib -I websrv -g -Wall
 LFLAGS = -Wall -L ../../bbbio/BBBIOlib -L websrv
 
-.PHONY: default all clean
+.PHONY: default all clean websrv
 
-default: hm
+default: websrv hm
+
 all: default
 
 
@@ -21,8 +22,10 @@ HMHEADERS = $(wildcard src/*.h)
 
 .PRECIOUS: hm $(HMOBJECTS)
 
-hm: $(HMOBJECTS)
+websrv:
 	$(MAKE) -C websrv
+
+hm: $(HMOBJECTS) websrv
 	$(CC) $(HMOBJECTS) $(LFLAGS) $(LIBS) -o $@
 
 clean:

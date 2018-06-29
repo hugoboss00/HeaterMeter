@@ -34,36 +34,6 @@ int hm_AdcPins[] = {PIN_PIT,PIN_FOOD1,PIN_FOOD2,PIN_AMB,APIN_FFEEDBACK,PIN_BUTTO
 
 #define DIFFMAX(x,y,d) ((x - y + d) <= (d*2U))
 
-int ADMUX = 0;
-int ADC = 0; // to be replaced by adc reading function
-
-#if defined(GRILLPID_SERVO_ENABLED)
-#if 0
-ISR(TIMER1_CAPT_vect)
-{
-  unsigned int nextStep = pid.getServoStepNext(OCR1B);
-  if (nextStep != 0)
-  {
-    digitalWriteFast(PIN_SERVO, HIGH);
-    nextStep -= uSecToTicks(SERVO_BUSYWAIT);
-    // Add the current timer1 count to offset the delay of calculating
-    // the next move, and any interrupt latency due to the ADC code
-    OCR1B = TCNT1 + nextStep;
-  }
-}
-
-ISR(TIMER1_COMPB_vect)
-{
-#if SERVO_BUSYWAIT > 0
-  // COMPB (OCR1B) is triggered SERVO_BUSYWAIT usec before the switch time
-  unsigned int target = OCR1B + uSecToTicks(SERVO_BUSYWAIT);
-  while (TCNT1 < target)
-    ;
-#endif
-  digitalWriteFast(PIN_SERVO, LOW);
-}
-#endif
-#endif
 
 static void calcExpMovingAverage(const float smooth, float *currAverage, float newValue)
 {
@@ -288,18 +258,6 @@ void GrillPid::setOutputFlags(unsigned char value)
     newTop = 255;
 
   adc.setTop(newTop);
-#if 0
-  // Timer2 Fast PWM
-  TCCR2A = bit(WGM21) | bit(WGM20);
-  if (bit_is_set(value, PIDFLAG_FAN_FEEDVOLT))
-    TCCR2B = bit(CS20); // 62kHz
-  else
-    TCCR2B = bit(CS22) | bit(CS20); // 488Hz
-#endif
-// 7khz
-  //TCCR2B = bit(CS21);
-  // 61Hz
-  //TCCR2B = bit(CS22) | bit(CS21) | bit(CS20);
 }
 
 void GrillPid::servoRangeChanged(void)
