@@ -1,8 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-extern void start_server();
-extern void wait_server();
+#include "gom_server.h"
 
 int main()
 {

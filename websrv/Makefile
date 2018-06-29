@@ -1,4 +1,4 @@
-TARGET = libwebserver.a
+TARGET = libgomsrv.a
 LIBS = -lpthread -lboost_system -lboost_filesystem 
 #-lboost_chrono -lboost_date_time -lboost_atomic  -lboost_thread
 CC = g++
@@ -10,7 +10,7 @@ LFLAGS = -Wall
 default: $(TARGET)
 all: default
 
-OBJECTS = http_examples.o
+OBJECTS = gom_server.o
 HEADERS = $(wildcard */*.hpp)
 
 %.o: %.cpp $(HEADERS)
@@ -21,8 +21,8 @@ HEADERS = $(wildcard */*.hpp)
 $(TARGET): $(OBJECTS)
 	$(AR) rcs $@ $(OBJECTS)
 
-example: $(OBJECTS) http_examples_main.o
-	$(CC) $(OBJECTS) http_examples_main.o $(LFLAGS) $(LIBS) -o $@
+gom_server_test: $(OBJECTS) gom_server_test.o
+	$(CC) $(OBJECTS) gom_server_test.o $(LFLAGS) $(LIBS) -o $@
 
 	
 clean:

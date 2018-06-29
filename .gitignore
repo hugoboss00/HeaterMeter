@@ -1,3 +1,5 @@
 **/*.o
 hm
-**/example
+**/gom_server_test
+**/*.a
+
