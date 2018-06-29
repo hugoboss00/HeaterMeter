@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <gom_server.h>
 
 #include "econfig.h"
 #include "digitalWriteFast.h"
@@ -1359,7 +1360,7 @@ void hmcoreLoop(void)
 int main(int argc, char **argv)
 {
 	hmcoreSetup();
-	
+	start_server();
 	while (1)
 	{
 		hmcoreLoop();

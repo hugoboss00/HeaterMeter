@@ -2,4 +2,6 @@
 hm
 **/gom_server_test
 **/*.a
+*.cfg
+
 
