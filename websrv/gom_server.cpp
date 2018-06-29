@@ -1,6 +1,7 @@
 //#include "client_http.hpp"
 #include "server_http.hpp"
 #include <time.h>
+#include <pthread.h>
 
 // Added for the json-example
 #define BOOST_SPIRIT_THREADSAFE
@@ -22,6 +23,11 @@ using namespace boost::property_tree;
 
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 //using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
+
+void *do_server(void *);
+static pthread_t t_server;
+
+
 template<typename ... Args>
 string string_format( const std::string& format, Args ... args )
 {
@@ -77,7 +83,14 @@ void addProbes(ptree &pt)
 	
 }
 
-int main() {
+
+void start_server()
+{
+	pthread_create(&t_server, NULL, do_server, NULL);
+}
+
+
+void *do_server(void *) {
   // HTTP-server at port 8080 using 1 thread
   // Unless you do more heavy non-threaded processing in the resources,
   // 1 thread is usually faster than several threads
@@ -188,21 +201,16 @@ int main() {
 
   // GET-example for the path /info
   // Responds with request-information
-  server.resource["^/info$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/hist$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+
     stringstream stream;
-    stream << "<h1>Request from " << request->remote_endpoint_address() << ":" << request->remote_endpoint_port() << "</h1>";
-
-    stream << request->method << " " << request->path << " HTTP/" << request->http_version;
-
-    stream << "<h2>Query Fields</h2>";
-    auto query_fields = request->parse_query_string();
-    for(auto &field : query_fields)
-      stream << field.first << ": " << field.second << "<br>";
-
-    stream << "<h2>Header Fields</h2>";
-    for(auto &field : request->header)
-      stream << field.first << ": " << field.second << "<br>";
-
+	string csv = "";
+	
+	
+	stream << "HTTP/1.1 200 OK\r\n"
+                << "Content-Length: " << csv.length() << "\r\n\r\n"
+                << csv;
+	
     response->write(stream);
   };
 
@@ -310,13 +318,11 @@ int main() {
     // Start server
     server.start();
   });
-
-  // Wait for server to start so that the client can connect
-  this_thread::sleep_for(chrono::seconds(1));
-
-
-  string json_string = "{\"firstName\": \"John\",\"lastName\": \"Smith\",\"age\": 25}";
-
-
   server_thread.join();
+  return 0;
+}
+
+void wait_server()
+{
+	pthread_join(t_server, NULL);
 }

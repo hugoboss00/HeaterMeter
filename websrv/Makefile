@@ -2,7 +2,7 @@ TARGET = libwebserver.a
 LIBS = -lpthread -lboost_system -lboost_filesystem 
 #-lboost_chrono -lboost_date_time -lboost_atomic  -lboost_thread
 CC = g++
-CFLAGS = -std=c++11 -g -Wall
+CFLAGS = -std=c++11 -O2 -Wall
 LFLAGS = -Wall
 
 .PHONY: default all clean
@@ -10,7 +10,7 @@ LFLAGS = -Wall
 default: $(TARGET)
 all: default
 
-OBJECTS = $(patsubst %.cpp, %.o, $(wildcard *.cpp))
+OBJECTS = http_examples.o
 HEADERS = $(wildcard */*.hpp)
 
 %.o: %.cpp $(HEADERS)
@@ -21,8 +21,8 @@ HEADERS = $(wildcard */*.hpp)
 $(TARGET): $(OBJECTS)
 	$(AR) rcs $@ $(OBJECTS)
 
-example: $(OBJECTS)
-	$(CC) $(OBJECTS) $(LFLAGS) $(LIBS) -o $@
+example: $(OBJECTS) http_examples_main.o
+	$(CC) $(OBJECTS) http_examples_main.o $(LFLAGS) $(LIBS) -o $@
 
 	
 clean:

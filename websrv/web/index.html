@@ -108,14 +108,15 @@ $(document).ready(function()
     //var now = +new Date();
     //if ((now - 10000) < (o.time * 1000))
      //   connectionSuccess(o);
-	tstatSuccess("");
+	//tstatSuccess("");
 
-	//refreshGraphData();
+	refreshGraphData();
 });
 
 $(window).load(function ()
 {
-    JSONQuery();
+	if (!lastUpdateUtc)
+    	JSONQuery();
     window.setInterval(JSONQuery, 10000);
     if (!!window.EventSource) {
         var source = new EventSource("lm/stream");
@@ -326,7 +327,7 @@ function refreshGraphData()
     $("#dlcsv").attr("href", "lm/hist?dl=1&" + $.param(params));
     $.ajax({
         type: "GET",
-        url: "lm/hist",
+        url: "hist",
         data: params,
         dataType: "text",
         success: tstatSuccess,
@@ -628,7 +629,7 @@ function tstatSuccess(csv)
     // mapCsv translates csv field index to graphData index
     // a graphData index of -1 means not to map it
     var mapCsv = [-1,2,6,5,4,3,0];
-    
+    // time, set, pit, food1, food2, food3, fan
     clearLoadingIndic();
     $.each(csv.split('\n'), function (){
         if (this == "") return;
@@ -697,9 +698,9 @@ function checkRefreshGraphOrUpdate()
     // the RRD holds up to 480 points and the graph holds
     // less due to point consolidation, so best case
     // scenario 24pts * 10sec per poll = 4mins
-//    if (max > 504)
-//        refreshGraphData()
-//    else
+    if (max > 504)
+        refreshGraphData()
+    else
         updateGraph();
 }
 
