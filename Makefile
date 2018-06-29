@@ -1,8 +1,8 @@
 
-LIBS = -lm -lstdc++ -lrt -pthread -lBBBio
+LIBS = -lm -lstdc++ -lrt -pthread -lBBBio -lwebserver
 CC = gcc
 CFLAGS = -I ../../bbbio/BBBIOlib/BBBio_lib -g -Wall
-LFLAGS = -Wall -L ../../bbbio/BBBIOlib
+LFLAGS = -Wall -L ../../bbbio/BBBIOlib -L websrv
 
 .PHONY: default all clean
 
@@ -22,6 +22,7 @@ HMHEADERS = $(wildcard src/*.h)
 .PRECIOUS: hm $(HMOBJECTS)
 
 hm: $(HMOBJECTS)
+	$(MAKE) -C websrv
 	$(CC) $(HMOBJECTS) $(LFLAGS) $(LIBS) -o $@
 
 clean:

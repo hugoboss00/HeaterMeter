@@ -28,26 +28,26 @@ HMConfig::HMConfig()
 
 uint8_t HMConfig::econfig_read_byte(const void *_src)
 {
-	unsigned int ofs = (unsigned int)_src;
+	unsigned long ofs = (unsigned long)_src;
 	if (ofs < CONFIG_FILESIZE)
 		return eeprom_config[ofs];
 	else
-		printf("Error reading offset %d\n",ofs);
+		printf("Error reading offset %ld\n",ofs);
 	
 	return 0;
 }
 
 void HMConfig::econfig_write_byte(void *_dst, uint8_t val)
 {
-	unsigned int ofs = (unsigned int)_dst;
+	unsigned long ofs = (unsigned long)_dst;
 	if (ofs < CONFIG_FILESIZE)
 	{
 		eeprom_config[ofs] = val;
 		lseek(fd_config, ofs, SEEK_SET);
-		write(fd_config, eeprom_config[ofs], 1);
+		write(fd_config, &eeprom_config[ofs], 1);
 	}
 	else
-		printf("Error writing offset %d\n",ofs);
+		printf("Error writing offset %ld\n",ofs);
 }
 
 
