@@ -1,30 +1,26 @@
-This is the source code respository for the HeaterMeter and LinkMeter BBQ grill controllers. Documentation can be found in the wiki:
-https://github.com/CapnBry/HeaterMeter/wiki
+This is the source code respository for the Grill-O-Mat
+
+**** WORK IN PROGRESS ****
+**** CURRENTLY NOT IN A WORKING STATE *****
+
+Grill-O-Mat is a temperature monitoring and controlling solution for BBQ Grills.
+It is based on source code from HeaterMeter (https://github.com/CapnBry/HeaterMeter), BBBIOLib (https://github.com/VegetableAvenger/BBBIOlib) and Simple Web Server (https://github.com/eidheim/Simple-Web-Server)
+It runs on a BeagleBoard Black. 
+
 
 +-----+ +-----+ +------+
 |Probe| |Probe| |Blower|
 +-----+ +-----+ +------+
      |       |        |    2.5mm jacks
-A +-------------+     |
-V | HeaterMeter |-----/    (arduino/heatermeter)
-R +-------------+
-========|===============   Serial UART
+  +-------------+     |      +------------------------+
+  | Beagleboard |-----/------| LCD Display (optional) |
+  +-------------+            +------------------------+
+========|===============   Network (Wifi on a Beagleboard Blach Wireless)
   +------------------+
-  | +------------+ |
-O | | linkmeterd | |      (openwrt/package/linkmeter)
-p | +------------+ |
-e |       |        |      /var/run/linkmeter.sock
-n |    +------+    |
-W |    | luci |    |      LUA in-process
-r |   +--------+   |
-t |   | uhttpd |   |
-  |   +--------+   |
-  +-----------------+
+  | Firefox / IE     |
+  +------------------+
   
 Source Layout
-3d/* - 3D printed parts source files
-openwrt/* - Files you'd push to your router for LinkMeter
-arduino/* - AVR source code for upload to your Arduino board
-eagle/* - Hardware schematics and board files
-pebble/* - Source to the Pebble app
-tools/* - Miscellaneous scripts and .NET apps
+src/*    - source code for Grill-O-Mat
+eagle/*  - Hardware schematics and board files
+websrv/* - web server library for Grill-O-Mat
