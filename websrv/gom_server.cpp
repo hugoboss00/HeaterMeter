@@ -24,6 +24,9 @@ using namespace boost::property_tree;
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 //using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
+extern void getProbeData(ptree &pt);
+extern void getHistory(stringstream &csv);
+
 void *do_server(void *);
 static pthread_t t_server;
 
@@ -54,40 +57,12 @@ string string_format( const std::string& format, Args ... args )
   ]
 #endif
 
-static int counter = 0;
-void addProbe(int i, ptree &pt)
-{
-	ptree probe,alarm;
-	int temp = 70 + i + counter;
-	string buf = string_format("Probe %d",i);
-	probe.put("n", buf);
-	probe.put("c", temp);
-	probe.put("dph", "1.3");
-	alarm.put("l","-40");
-	alarm.put("h","200");
-	alarm.put("r","null");
-	probe.add_child("a",alarm);
-	pt.push_back(std::make_pair("", probe));
-	
-}
-
-void addProbes(ptree &pt)
-{
-	ptree temps;
-	
-	for (int i=0; i<4; i++)
-	{
-		addProbe(i, temps);
-	}
-	pt.add_child("temps",temps);
-	counter = (counter + 1)%20;
-	
-}
 
 
 void start_server()
 {
 	pthread_create(&t_server, NULL, do_server, NULL);
+	pthread_setname_np(t_server, "gom_srv");
 }
 
 
@@ -126,56 +101,18 @@ void *do_server(void *) {
   // }
   server.resource["^/json$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     try {
-      ptree pt, fan, adc, adcs;
+      ptree pt;
 	  printf("path: %s\n", request->path.c_str());
 	  printf("%s\n", request->content.string().c_str());
       //read_json(request->content, pt);
 
-#if 0
-  "time":1405429467,
-  "set":65,
-  "lid":38,
-  "fan":{"c":0,"a":13,"f":10},
-  "adc":[0,0,0,0,0,3],
-  "temps":[
-    {
-      "n":"Probe 0",
-      "c":78.6,
-      "dph":1.3,
-      "rf":{"s":1,"b":0},
-      "a":{"l":-40,"h":200,"r":null}
-    },
-    ...
-  ]
-#endif
-	  
-		unsigned long nowtime = time(NULL);
-		pt.put("time", nowtime);
-		pt.put("set", "88");
-		pt.put("lid", "35");
-		fan.put("c","0");
-		fan.put("a","13");
-		fan.put("f","10");
-		pt.add_child("fan",fan);
-		for (int i=0; i<6; i++)
-		{
-			// Create an unnamed node containing the value
-			ptree adc;
-			adc.put("", "0");
-
-			// Add this node to the list.
-			adcs.push_back(std::make_pair("", adc));
-		}		
-		pt.add_child("adc",adcs);
-		
-		addProbes(pt);
+      getProbeData(pt);
 		
 		
 		std::stringstream ss;
 		boost::property_tree::json_parser::write_json(ss, pt);
 			
-		printf("string:%s\n", ss.str().c_str());
-//      auto name = pt.get<string>("firstName") + " " + pt.get<string>("lastName");
+		//printf("string:%s\n", ss.str().c_str());
 
       *response << "HTTP/1.1 200 OK\r\n"
                 << "Content-Length: " << ss.str().length() << "\r\n\r\n"
@@ -187,17 +124,6 @@ void *do_server(void *) {
     }
 
 
-    // Alternatively, using a convenience function:
-    // try {
-    //     ptree pt;
-    //     read_json(request->content, pt);
-
-    //     auto name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
-    //     response->write(name);
-    // }
-    // catch(const exception &e) {
-    //     response->write(SimpleWeb::StatusCode::client_error_bad_request, e.what());
-    // }
   };
 
   // GET-example for the path /info
@@ -205,15 +131,29 @@ void *do_server(void *) {
   server.resource["^/hist$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
 
     stringstream stream;
-	string csv = "";
+	stringstream csv;
+	printf("path: %s\n", request->path.c_str());
+	printf("%s\n", request->content.string().c_str());
 	
-	
+	getHistory(csv);
+		
 	stream << "HTTP/1.1 200 OK\r\n"
-                << "Content-Length: " << csv.length() << "\r\n\r\n"
-                << csv;
+                << "Content-Length: " << csv.str().length() << "\r\n\r\n"
+                << csv.str();
 	
-    response->write(stream);
+    *response << stream.str();
   };
+
+  // GET-example for the path /match/[number], responds with the matched string in path (number)
+  // For instance a request GET /match/123 will receive: 123
+  server.resource["^/set.*$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+	printf("path: %s\n", request->path.c_str());
+    printf("param0: %s\n", request->path_match[0].str().c_str());
+    printf("param1: %s\n", request->path_match[1].str().c_str());
+    printf("param2: %s\n", request->path_match[2].str().c_str());
+	response->write("");
+  };
+
 
   // GET-example for the path /match/[number], responds with the matched string in path (number)
   // For instance a request GET /match/123 will receive: 123
@@ -222,10 +162,42 @@ void *do_server(void *) {
   };
 
   // GET-example simulating heavy work in a separate thread
-  server.resource["^/work$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+  server.resource["^/stream$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+	printf("path: %s\n", request->path.c_str());
+	printf("%s\n", request->content.string().c_str());
     thread work_thread([response] {
-      this_thread::sleep_for(chrono::seconds(5));
-      response->write("Work done");
+		int running = 1;
+		*response << "HTTP/1.1 200 OK\r\n"
+		<< "Content-Type: text/event-stream\r\n"
+		<< "Cache-Control: no-cache\r\n"
+		<< "Connection: keep-alive\r\n\r\n";
+		response->send();
+		while (running)
+		{
+			ptree pt;
+
+			getProbeData(pt);
+			std::stringstream ss;
+			ss << "event: hmstatus\n";
+			ss << "data: ";
+			boost::property_tree::json_parser::write_json(ss, pt, false);
+			ss << "\n\n";
+			
+			//printf("string:%s\n", ss.str().c_str());
+
+			*response << ss.str();
+			response->send([&running](const SimpleWeb::error_code &ec) {
+                  if(ec)
+				  {
+					running = 0;
+				  }
+                });
+
+
+
+			this_thread::sleep_for(chrono::seconds(10));
+
+	  }
     });
     work_thread.detach();
   };
@@ -306,6 +278,7 @@ void *do_server(void *) {
         throw invalid_argument("could not read file");
     }
     catch(const exception &e) {
+	  printf("Error to get path %s\n", request->path.c_str());
       response->write(SimpleWeb::StatusCode::client_error_bad_request, "Could not open path " + request->path + ": " + e.what());
     }
   };

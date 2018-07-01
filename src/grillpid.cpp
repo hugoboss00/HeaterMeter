@@ -97,6 +97,7 @@ void TempProbe::loadConfig(struct __eeprom_probe *config)
   _probeType = config->probeType;
   Offset = config->tempOffset;
   memcpy(Steinhart, config->steinhart, sizeof(Steinhart));
+  memcpy(_name, config->name, PROBE_NAME_SIZE);
   Alarms.setLow(config->alarmLow);
   Alarms.setHigh(config->alarmHigh);
 }
@@ -576,6 +577,7 @@ void GrillPid::status(void) const
 #endif
 }
 
+
 bool GrillPid::doWork(void)
 {
   unsigned int elapsed = millis() - _lastWorkMillis;
@@ -676,3 +678,74 @@ void GrillPid::setUnits(char units)
       break;
   }
 }
+
+void GrillPid::addProbeValues(int i, ptree &pt)
+{
+	ptree probe,alarm;
+	if (i >= TEMP_COUNT)
+		return;
+	
+	const char *ring = "null";
+	if (Probes[i]->Alarms.getLowRinging() || Probes[i]->Alarms.getHighRinging())
+	{
+		ring = "H";
+		if (Probes[i]->Alarms.getLowRinging())
+			ring = "L";
+	}
+	
+	
+	int temp = Probes[i]->Temperature;
+	probe.put("n", Probes[i]->getName());
+	probe.put("c", temp);
+	probe.put("dph", "1.3");
+	alarm.put("l",Probes[i]->Alarms.getLow());
+	alarm.put("h",Probes[i]->Alarms.getHigh());
+	alarm.put("r",ring);
+
+	probe.add_child("a",alarm);
+	pt.push_back(std::make_pair("", probe));
+	
+}
+
+// write history entry
+// time, set, pit, food1, food2, food3, fan, servo
+void GrillPid::writeHistory(void)
+{
+	tHISTORY_ENTRY entry;
+	unsigned int elapsed = millis() - _lastHistoryMillis;
+	if (elapsed < HISTORY_PERIOD)
+		return;
+	_lastHistoryMillis = millis();
+
+	unsigned char fanspeed = pid.getFanSpeed();
+	if (fanspeed < pid.getFanMinSpeed())
+		fanspeed = pid.getFanMinSpeed();
+	if (fanspeed > pid.getFanMaxSpeed())
+		fanspeed = pid.getFanMaxSpeed();
+	
+	unsigned char servo_output;
+	// Servo is open 0% at 0 PID output and 100% at _servoActiveCeil PID output
+	if (_pidOutput >= _servoActiveCeil)
+		servo_output = 100;
+	else
+		servo_output = (unsigned int)_pidOutput * 100U / _servoActiveCeil;
+	
+	entry.time = time(NULL);
+	entry.set  = pid.getSetPoint();
+	entry.pit  = Probes[TEMP_PIT]->Temperature;
+	entry.food1 = Probes[TEMP_FOOD1]->Temperature;
+	entry.food2 = Probes[TEMP_FOOD2]->Temperature;
+	entry.food3 = Probes[TEMP_AMB]->Temperature;
+	entry.fan   = fanspeed;
+	entry.servo = servo_output;
+	_history_array.push_back(entry);
+}
+
+void GrillPid::getHistoryCsv(stringstream &csv)
+{
+	for(std::vector<tHISTORY_ENTRY>::iterator it = _history_array.begin(); it != _history_array.end(); ++it)
+	{
+		csv << it->time << "," << (int)it->set << "," << (int)it->pit << "," << (int)it->food1 << "," << (int)it->food2 << "," << (int)it->food3 << "," << (int)it->fan << "," << (int)it->servo << endl;
+	}
+}
+

@@ -130,7 +130,7 @@ void * Adc::adc_loop(void *argv)
 			//padc->m_adcValue[i] = pinget(buf);
 			}
 		}
-		delayMicroseconds(1000);
+		delayMicroseconds(2000);
 	}
 }
 
@@ -246,7 +246,7 @@ void Adc::init(int pin[], int adccount)
 	}
 
 	pthread_create(&adc_thread, NULL, &adc_loop, this);
-
+	pthread_setname_np(adc_thread, "gom_adc");
 	
 }
 

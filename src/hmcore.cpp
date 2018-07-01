@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <gom_server.h>
+#include <pthread.h>
+#define BOOST_SPIRIT_THREADSAFE
+#include <boost/property_tree/ptree.hpp>
 
 #include "econfig.h"
 #include "digitalWriteFast.h"
@@ -19,6 +22,8 @@
 #include "systemif.h"
 #include "serial.h"
 #include "adc.h"
+
+using namespace boost::property_tree;
 
 static TempProbe probe0(PIN_PIT);
 static TempProbe probe1(PIN_FOOD1);
@@ -957,6 +962,8 @@ static void setTempParam(unsigned char idx, int val)
 static void handleCommandUrl(char *URL)
 {
   unsigned char urlLen = strlen(URL);
+  printf("handle url: %s\n",URL);
+  
   if (strncmp(URL, ("set?sp="), 7) == 0) 
   {
     // store the units first, in case of 'O' disabling the PID output
@@ -1338,6 +1345,49 @@ void hmcoreSetup(void)
   Menus.setState(ST_HOME_NOPROBES);
 }
 
+
+void getProbeData(ptree &pt)
+{
+    ptree fan, adc, adcs;
+	ptree temps;
+	unsigned long nowtime = time(NULL);
+	int fanspeed = pid.getFanSpeed();
+	if (fanspeed < pid.getFanMinSpeed())
+		fanspeed = pid.getFanMinSpeed();
+	if (fanspeed > pid.getFanMaxSpeed())
+		fanspeed = pid.getFanMaxSpeed();
+	
+	
+	pt.put("time", nowtime);
+	pt.put("set", pid.getSetPoint());
+	pt.put("lid", pid.LidOpenResumeCountdown);
+	fan.put("c", pid.getFanSpeed());
+	fan.put("a", pid.getFanSpeed());
+	fan.put("f",fanspeed);
+	pt.add_child("fan",fan);
+	for (int i=0; i<6; i++)
+	{
+		// Create an unnamed node containing the value
+		ptree adc;
+		adc.put("", "0");
+
+		// Add this node to the list.
+		adcs.push_back(std::make_pair("", adc));
+	}		
+	pt.add_child("adc",adcs);
+	
+	for (int i=0; i<4; i++)
+	{
+		pid.addProbeValues(i, temps);
+	}
+	pt.add_child("temps",temps);
+}
+
+void getHistory(stringstream &csv)
+{
+	pid.getHistoryCsv(csv);
+}
+
 void hmcoreLoop(void)
 { 
 #ifdef HEATERMETER_SERIAL 
@@ -1350,7 +1400,10 @@ void hmcoreLoop(void)
 #endif /* HEATERMETER_RFM12 */
 
   if (pid.doWork())
-    newTempsAvail();
+  {
+	newTempsAvail();
+	pid.writeHistory();
+  }
   Menus.doWork();
   tone_doWork();
   ledmanager.doWork();
@@ -1359,11 +1412,12 @@ void hmcoreLoop(void)
 
 int main(int argc, char **argv)
 {
+	pthread_setname_np(pthread_self(), "gom_main");
 	hmcoreSetup();
 	start_server();
 	while (1)
 	{
 		hmcoreLoop();
-		delayMicroseconds(1000);
+		delayMicroseconds(5000);
 	}
 }

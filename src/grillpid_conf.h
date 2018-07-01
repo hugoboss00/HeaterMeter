@@ -18,6 +18,8 @@
 
 // The time (ms) of the measurement period
 #define TEMP_MEASURE_PERIOD 1000
+// The time (ms) of the history period
+#define HISTORY_PERIOD 5000
 // Number of times the ouput is adusted over TEMP_MEASURE_PERIOD
 // This affects fan boost mode and FFEEDBACK output
 #define TEMP_OUTADJUST_CNT 3

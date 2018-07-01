@@ -45,6 +45,7 @@ void HMConfig::econfig_write_byte(void *_dst, uint8_t val)
 		eeprom_config[ofs] = val;
 		lseek(fd_config, ofs, SEEK_SET);
 		write(fd_config, &eeprom_config[ofs], 1);
+		printf("eep: write %d to %ld\n", (int)val, ofs);
 	}
 	else
 		printf("Error writing offset %ld\n",ofs);

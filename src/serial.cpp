@@ -54,8 +54,8 @@ void Serial::write(float val)
 	
 char Serial::read()
 {
-      int c=0;
-#if 1
+    int c=0;
+
     struct termios orig_term_attr;
     struct termios new_term_attr;
 
@@ -73,10 +73,9 @@ char Serial::read()
 
     /* restore the original terminal attributes */
     tcsetattr(fileno(stdin), TCSANOW, &orig_term_attr);
-
 	  if (c < 0)
 		  c=0;
-#endif
-      return(c);
+
+	return(c);
 }
 

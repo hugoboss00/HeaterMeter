@@ -2,10 +2,13 @@
 #ifndef __GRILLPID_H__
 #define __GRILLPID_H__
 
-//#include "Arduino.h"
 #include <stdbool.h>
 #include "grillpid_conf.h"
 #include "systemif.h"
+#define BOOST_SPIRIT_THREADSAFE
+#include <boost/property_tree/ptree.hpp>
+#include <vector>
+#include <string>
 
 // Probe types used in probeType config
 #define PROBETYPE_DISABLED 0  // do not read
@@ -16,8 +19,19 @@
 #define STEINHART_COUNT 4
 
 //#define NOISEDUMP_PIN 5
+using namespace boost::property_tree;
+using namespace std;
 
-
+typedef struct {
+	unsigned long time;
+	unsigned char set;
+	unsigned char pit;
+	unsigned char food1;
+	unsigned char food2;
+	unsigned char food3;
+	unsigned char fan;
+	unsigned char servo;
+}tHISTORY_ENTRY;
 
 struct __eeprom_probe
 {
@@ -72,12 +86,13 @@ private:
   unsigned char _probeType;
   char _tempStatus;
   bool _hasTempAvg;
+  char _name[PROBE_NAME_SIZE];
 
 public:
   TempProbe(const unsigned char pin);
 
   const unsigned char getPin(void) const { return _pin; }
-
+  char *getName(void) { return _name;};
   /* Configuration */
   // Probe Type
   unsigned char getProbeType(void) const { return _probeType; }
@@ -156,6 +171,7 @@ class GrillPid
 private:
   unsigned char _pidOutput;
   unsigned long _lastWorkMillis;
+  unsigned long _lastHistoryMillis;
   unsigned char _pidMode;
   int _setPoint;
   unsigned char _periodCounter;
@@ -185,7 +201,9 @@ private:
   unsigned char _servoStepTicks;
   // count of periods a servo write has been delayed
   unsigned char _servoHoldoff;
-
+  
+  std::vector<tHISTORY_ENTRY> _history_array;
+  
   void calcPidOutput(void);
   void commitFanOutput(void);
   void commitServoOutput(void);
@@ -285,6 +303,9 @@ public:
   void resetLidOpenResumeCountdown(void);
   void status(void) const;
   void pidStatus(void) const;
+  void addProbeValues(int index, ptree &pt);
+  void writeHistory(void);
+  void getHistoryCsv(stringstream &csv);
 };
 
 #endif /* __GRILLPID_H__ */

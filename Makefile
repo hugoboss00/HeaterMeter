@@ -1,7 +1,7 @@
 
 LIBS = -Wl,--start-group -lm -lstdc++ -lrt -pthread -lboost_system -lboost_filesystem -lBBBio -lgomsrv -Wl,--end-group
 CC = gcc
-CFLAGS = -I ../../bbbio/BBBIOlib/BBBio_lib -I websrv -g -Wall
+CFLAGS = -O2 -I ../../bbbio/BBBIOlib/BBBio_lib -I websrv -g -Wall
 LFLAGS = -Wall -L ../../bbbio/BBBIOlib -L websrv
 
 .PHONY: default all clean websrv

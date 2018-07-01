@@ -6,7 +6,7 @@
 <title>HeaterMeter BBQ Control</title>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js" type="text/javascript" charset="utf-8"></script>
 <script src="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/x-editable/1.5.0/bootstrap3-editable/js/bootstrap-editable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jeditable.js/1.7.3/jeditable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/excanvas/r3/excanvas.compiled.js"></script>
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.min.js"></script>
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.time.js"></script>
@@ -115,11 +115,8 @@ $(document).ready(function()
 
 $(window).load(function ()
 {
-	if (!lastUpdateUtc)
-    	JSONQuery();
-    window.setInterval(JSONQuery, 10000);
     if (!!window.EventSource) {
-        var source = new EventSource("lm/stream");
+        var source = new EventSource("stream");
         source.addEventListener("hmstatus", function(e) {
             var o = JSON.parse(e.data);
             connectionSuccess(o);
@@ -628,8 +625,8 @@ function tstatSuccess(csv)
 {
     // mapCsv translates csv field index to graphData index
     // a graphData index of -1 means not to map it
-    var mapCsv = [-1,2,6,5,4,3,0];
-    // time, set, pit, food1, food2, food3, fan
+    var mapCsv = [-1,2,6,5,4,3,0,-1];
+    // time, set, pit, food1, food2, food3, fan, servo
     clearLoadingIndic();
     $.each(csv.split('\n'), function (){
         if (this == "") return;
@@ -655,7 +652,7 @@ function tstatSuccess(csv)
 function nameChanged(value, settings)
 {
     var params = {}; params[this.id] = value;
-    $.get("admin/lm/set", params);
+    $.get("lm/set", params);
     return value;
 }
 
@@ -663,7 +660,7 @@ function tempChanged(value, settings)
 {
     if (value.length > 0)
     {
-        $.get("admin/lm/set", {sp: value});
+        $.get("set", {sp: value});
         return value;
     }
     else return "err";
@@ -1088,7 +1085,7 @@ img.preload { display: none; }
         <ul>
         <li><a href="admin/lm/alarm">Alarms</a></li>
         <li><a href="admin/lm/archive">Archive</a></li>
-        <li><a href="admin/lm">Configuration</a></li>
+        <li><a href="conf.html">Configuration</a></li>
         </ul>
     </div>
 </div>
