@@ -637,7 +637,7 @@ static void reportProbeCoeff(unsigned char probeIdx)
   Serial_nl();
 }
 
-static void storeProbeCoeff(unsigned char probeIndex, char *vals)
+static void storeProbeCoeff(unsigned char probeIndex, const char *vals)
 {
   // vals is SteinA(float),SteinB(float),SteinC(float),RKnown(float),probeType+1(int)|probeMap(char+int)
   // If any value is blank, it won't be modified
@@ -716,6 +716,7 @@ void storeAndReportProbeOffset(unsigned char probeIndex, int offset)
 void storeAndReportProbeName(unsigned char probeIndex, const char *name)
 {
   storeProbeName(probeIndex, name);
+  pid.Probes[probeIndex]->setName(name);
   reportProbeNames();
 }
 
@@ -839,7 +840,7 @@ static void reportConfig(void)
 
 typedef void (*csv_int_callback_t)(unsigned char idx, int val);
 
-static void csvParseI(char *vals, csv_int_callback_t c)
+static void csvParseI(const char *vals, csv_int_callback_t c)
 {
   unsigned char idx = 0;
   while (*vals)
@@ -959,7 +960,7 @@ static void setTempParam(unsigned char idx, int val)
   }
 }
 
-static void handleCommandUrl(char *URL)
+void handleCommandUrl(const char *URL)
 {
   unsigned char urlLen = strlen(URL);
   printf("handle url: %s\n",URL);
@@ -1383,7 +1384,7 @@ void getProbeData(ptree &pt)
 	pt.add_child("temps",temps);
 }
 
-void getHistory(stringstream &csv)
+void getHistory(stringstream &csv, int timespan)
 {
 	pid.getHistoryCsv(csv);
 }

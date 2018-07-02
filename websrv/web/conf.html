@@ -3,6 +3,8 @@
 <head>
 <link rel="icon" type="image/png" href="boxy-color.png" sizes="192x192">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="stylesheet" type="text/css" href="usercss.css" media="screen" />
+
 <title>HeaterMeter BBQ Control</title>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js" type="text/javascript" charset="utf-8"></script>
 <script src="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
@@ -12,7 +14,7 @@
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.time.js"></script>
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.selection.js"></script>
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.canvas.js"></script>
-<script type="text/javascript">//<![CDATA[
+<script type="text/javascript">
 var configHash = "{ucid,1}";
 var apikey = ""
 var rfInterval;
@@ -29,6 +31,19 @@ var coeffPresets = [
   //{"name": "EPCOS 100k", "desc": "Beta 3950", "stein": "7.2237825e-4,2.1630182e-4,9.2641029e-8"}
   //{"name": "Semitec", "desc": "Part 104GT-2", "stein": "8.1129016e-4,2.1135575e-4,7.1761474e-8"}
 ];
+
+$(document).ready(function()
+{
+  $.get("conf",
+    function (o) { configHash = o; configToForm(); windowLoaded(); })
+    .fail(function () { connectionFailure(); })
+    .always(ifrmHide);
+});
+
+function connectionFailure()
+{
+}
+
 
 $(function ()
 {
@@ -541,8 +556,8 @@ function newApiKey()
     .trigger("change");
 }
 
-//]]></script>
-<style>
+</script>
+<style type="text/css">
   .pn { width: 120px !important; }
   .pc { width: 120px !important; }
   .pt { width: 122px !important; }
@@ -596,39 +611,137 @@ The look of the Home page can be modified using the
 <legend>Probe Setup</legend>
 
 <table style="width: 100%;"><tr>
-<% for i = 0, 3 do %>
+
 <td class="pconfig">
-<div class="ptitle pnum<%=i%>">Probe <%=i%></div>
-<div class="pcurr" id="pcurr<%=i%>"></div>
-<div class="cbi-value"><label>Name</label><input type="text" maxlength="12" class="pn" id="pn<%=i%>"/></div>
-<div class="cbi-value"><label>Type</label><select class="pt" id="pt<%=i%>">
+<div class="ptitle pnum0">Probe 0</div>
+<div class="pcurr" id="pcurr0"></div>
+<div class="cbi-value"><label>Name</label><input type="text" maxlength="12" class="pn" id="pn0"/></div>
+<div class="cbi-value"><label>Type</label><select class="pt" id="pt0">
   <option value="0">Disabled</option>
   <option value="1">Thermistor</option>
   <option value="2">RF12 Wireless</option>
   <option value="3">Thermocouple</option>
 </select></div>
-<div id="disppc<%=i%>">
+<div id="disppc0">
   <div><b>Probe Coefficients</b></div>
-  <div class="cbi-value"><label><a class="nodest" href="https://github.com/CapnBry/HeaterMeter/wiki/HeaterMeter-Probes">Preset</a></label><select class="pcp" id="pcp<%=i%>">
-    </select><div id="pcad<%=i%>" class="pcpreset"></div>
+  <div class="cbi-value"><label><a class="nodest" href="https://github.com/CapnBry/HeaterMeter/wiki/HeaterMeter-Probes">Preset</a></label><select class="pcp" id="pcp0">
+    </select><div id="pcad0" class="pcpreset"></div>
   </div>
-  <div id="disppcc<%=i%>" style="display: none">
-    <div class="cbi-value"><label>A</label><input type="text" class="pc" id="pca<%=i%>"/></div>
-    <div class="cbi-value"><label>B</label><input type="text" class="pc" id="pcb<%=i%>"/></div>
-    <div class="cbi-value"><label>C</label><input type="text" class="pc" id="pcc<%=i%>"/></div>
+  <div id="disppcc0" style="display: none">
+    <div class="cbi-value"><label>A</label><input type="text" class="pc" id="pca0"/></div>
+    <div class="cbi-value"><label>B</label><input type="text" class="pc" id="pcb0"/></div>
+    <div class="cbi-value"><label>C</label><input type="text" class="pc" id="pcc0"/></div>
   </div>
 </div>
-  <div class="cbi-value" id="disppcr<%=i%>"><label>Resist</label><input type="text" maxlength="6" id="pcr<%=i%>" style="width: 4em;"/></div>
-  <div class="cbi-value" id="disppo<%=i%>"><label>Offset</label><input type="text" maxlength="3" id="po<%=i%>" style="width: 2em;"/></div>
-<div id="dispprf<%=i%>">
+  <div class="cbi-value" id="disppcr0"><label>Resist</label><input type="text" maxlength="6" id="pcr0" style="width: 4em;"/></div>
+  <div class="cbi-value" id="disppo0"><label>Offset</label><input type="text" maxlength="3" id="po0" style="width: 2em;"/></div>
+<div id="dispprf0">
   <div><b>RF12 Configuration</b></div>
   <div class="cbi-value cbi-value-last"><label>Node</label>
-    <input type="text" maxlength="3" id="prfn<%=i%>" style="width: 2em;"/>
-    <label><input type="checkbox" id="prfa<%=i%>" class="prfa"/> Any</label>
+    <input type="text" maxlength="3" id="prfn0" style="width: 2em;"/>
+    <label><input type="checkbox" id="prfa0" class="prfa"/> Any</label>
   </div>
 </div>
 </td>
-<% end %>
+
+<td class="pconfig">
+<div class="ptitle pnum1">Probe 1</div>
+<div class="pcurr" id="pcurr1"></div>
+<div class="cbi-value"><label>Name</label><input type="text" maxlength="12" class="pn" id="pn1"/></div>
+<div class="cbi-value"><label>Type</label><select class="pt" id="pt1">
+  <option value="0">Disabled</option>
+  <option value="1">Thermistor</option>
+  <option value="2">RF12 Wireless</option>
+  <option value="3">Thermocouple</option>
+</select></div>
+<div id="disppc1">
+  <div><b>Probe Coefficients</b></div>
+  <div class="cbi-value"><label><a class="nodest" href="https://github.com/CapnBry/HeaterMeter/wiki/HeaterMeter-Probes">Preset</a></label><select class="pcp" id="pcp1">
+    </select><div id="pcad1" class="pcpreset"></div>
+  </div>
+  <div id="disppcc1" style="display: none">
+    <div class="cbi-value"><label>A</label><input type="text" class="pc" id="pca1"/></div>
+    <div class="cbi-value"><label>B</label><input type="text" class="pc" id="pcb1"/></div>
+    <div class="cbi-value"><label>C</label><input type="text" class="pc" id="pcc1"/></div>
+  </div>
+</div>
+  <div class="cbi-value" id="disppcr1"><label>Resist</label><input type="text" maxlength="6" id="pcr1" style="width: 4em;"/></div>
+  <div class="cbi-value" id="disppo1"><label>Offset</label><input type="text" maxlength="3" id="po1" style="width: 2em;"/></div>
+<div id="dispprf1">
+  <div><b>RF12 Configuration</b></div>
+  <div class="cbi-value cbi-value-last"><label>Node</label>
+    <input type="text" maxlength="3" id="prfn1" style="width: 2em;"/>
+    <label><input type="checkbox" id="prfa1" class="prfa"/> Any</label>
+  </div>
+</div>
+</td>
+
+
+<td class="pconfig">
+<div class="ptitle pnum2">Probe 2</div>
+<div class="pcurr" id="pcurr2"></div>
+<div class="cbi-value"><label>Name</label><input type="text" maxlength="12" class="pn" id="pn2"/></div>
+<div class="cbi-value"><label>Type</label><select class="pt" id="pt2">
+  <option value="0">Disabled</option>
+  <option value="1">Thermistor</option>
+  <option value="2">RF12 Wireless</option>
+  <option value="3">Thermocouple</option>
+</select></div>
+<div id="disppc2">
+  <div><b>Probe Coefficients</b></div>
+  <div class="cbi-value"><label><a class="nodest" href="https://github.com/CapnBry/HeaterMeter/wiki/HeaterMeter-Probes">Preset</a></label><select class="pcp" id="pcp2">
+    </select><div id="pcad2" class="pcpreset"></div>
+  </div>
+  <div id="disppcc2" style="display: none">
+    <div class="cbi-value"><label>A</label><input type="text" class="pc" id="pca2"/></div>
+    <div class="cbi-value"><label>B</label><input type="text" class="pc" id="pcb2"/></div>
+    <div class="cbi-value"><label>C</label><input type="text" class="pc" id="pcc2"/></div>
+  </div>
+</div>
+  <div class="cbi-value" id="disppcr2"><label>Resist</label><input type="text" maxlength="6" id="pcr2" style="width: 4em;"/></div>
+  <div class="cbi-value" id="disppo2"><label>Offset</label><input type="text" maxlength="3" id="po2" style="width: 2em;"/></div>
+<div id="dispprf2">
+  <div><b>RF12 Configuration</b></div>
+  <div class="cbi-value cbi-value-last"><label>Node</label>
+    <input type="text" maxlength="3" id="prfn2" style="width: 2em;"/>
+    <label><input type="checkbox" id="prfa2" class="prfa"/> Any</label>
+  </div>
+</div>
+</td>
+
+
+<td class="pconfig">
+<div class="ptitle pnum3">Probe 3</div>
+<div class="pcurr" id="pcurr3"></div>
+<div class="cbi-value"><label>Name</label><input type="text" maxlength="12" class="pn" id="pn3"/></div>
+<div class="cbi-value"><label>Type</label><select class="pt" id="pt3">
+  <option value="0">Disabled</option>
+  <option value="1">Thermistor</option>
+  <option value="2">RF12 Wireless</option>
+  <option value="3">Thermocouple</option>
+</select></div>
+<div id="disppc3">
+  <div><b>Probe Coefficients</b></div>
+  <div class="cbi-value"><label><a class="nodest" href="https://github.com/CapnBry/HeaterMeter/wiki/HeaterMeter-Probes">Preset</a></label><select class="pcp" id="pcp3">
+    </select><div id="pcad3" class="pcpreset"></div>
+  </div>
+  <div id="disppcc3" style="display: none">
+    <div class="cbi-value"><label>A</label><input type="text" class="pc" id="pca3"/></div>
+    <div class="cbi-value"><label>B</label><input type="text" class="pc" id="pcb3"/></div>
+    <div class="cbi-value"><label>C</label><input type="text" class="pc" id="pcc3"/></div>
+  </div>
+</div>
+  <div class="cbi-value" id="disppcr3"><label>Resist</label><input type="text" maxlength="6" id="pcr3" style="width: 4em;"/></div>
+  <div class="cbi-value" id="disppo3"><label>Offset</label><input type="text" maxlength="3" id="po3" style="width: 2em;"/></div>
+<div id="dispprf3">
+  <div><b>RF12 Configuration</b></div>
+  <div class="cbi-value cbi-value-last"><label>Node</label>
+    <input type="text" maxlength="3" id="prfn3" style="width: 2em;"/>
+    <label><input type="checkbox" id="prfa3" class="prfa"/> Any</label>
+  </div>
+</div>
+</td>
+
 </tr></table>
 </fieldset>
 
@@ -696,14 +809,12 @@ time they are restarted.</div>
   </div>
   <div class="cbi-value cbi-value-last">
   <ul class="led">
-<% for i=0,2 do 
-    local clr = (i == 0) and "red" or (i == 1) and "gold" or "greenyellow" %>
-    <li><div class="circle" style="background: <%=clr%>"></div>
-    LED <%=i+1%>
-    <label>Invert <input type="checkbox" id="lei<%=i%>"/></label>
+    <li><div class="circle" style="background: >"></div>
+    LED 1
+    <label>Invert <input type="checkbox" id="lei0"/></label>
     <br/>
-    <input type="hidden" id="le<%=i%>"/>
-    <select id="les<%=i%>" style="width: 11em;">
+    <input type="hidden" id="le0"/>
+    <select id="les0" style="width: 11em;">
       <option value="0">Off</option>
       <option value="1">Alarm 0 Low</option>
       <option value="2">Alarm 0 High</option>
@@ -724,8 +835,60 @@ time they are restarted.</div>
       <option value="127">Unset</option>
     </select>
     </li>
-<% end %>
-  </ul>
+    <li><div class="circle" style="background: >"></div>
+    LED 2
+    <label>Invert <input type="checkbox" id="lei1"/></label>
+    <br/>
+    <input type="hidden" id="le1"/>
+    <select id="les1" style="width: 11em;">
+      <option value="0">Off</option>
+      <option value="1">Alarm 0 Low</option>
+      <option value="2">Alarm 0 High</option>
+      <option value="3">Alarm 1 Low</option>
+      <option value="4">Alarm 1 High</option>
+      <option value="5">Alarm 2 Low</option>
+      <option value="6">Alarm 2 High</option>
+      <option value="7">Alarm 3 Low</option>
+      <option value="8">Alarm 3 High</option>
+      <option value="14">Any Alarm Ringing</option>
+      <option value="9">RF Data Received</option>
+      <option value="10">Lid Open</option>
+      <option value="11">Output > 0%</option>
+      <option value="13">Output = Max</option>
+      <option value="12">Pit Temp Reached</option>
+      <option value="15">Pit Startup Mode</option>
+      <option value="16">Pit Recovery Mode</option>
+      <option value="127">Unset</option>
+    </select>
+    </li>
+    <li><div class="circle" style="background: >"></div>
+    LED 3
+    <label>Invert <input type="checkbox" id="lei1"/></label>
+    <br/>
+    <input type="hidden" id="le1"/>
+    <select id="les1" style="width: 11em;">
+      <option value="0">Off</option>
+      <option value="1">Alarm 0 Low</option>
+      <option value="2">Alarm 0 High</option>
+      <option value="3">Alarm 1 Low</option>
+      <option value="4">Alarm 1 High</option>
+      <option value="5">Alarm 2 Low</option>
+      <option value="6">Alarm 2 High</option>
+      <option value="7">Alarm 3 Low</option>
+      <option value="8">Alarm 3 High</option>
+      <option value="14">Any Alarm Ringing</option>
+      <option value="9">RF Data Received</option>
+      <option value="10">Lid Open</option>
+      <option value="11">Output > 0%</option>
+      <option value="13">Output = Max</option>
+      <option value="12">Pit Temp Reached</option>
+      <option value="15">Pit Startup Mode</option>
+      <option value="16">Pit Recovery Mode</option>
+      <option value="127">Unset</option>
+    </select>
+    </li>
+
+	</ul>
   </div>
 </fieldset>
 
@@ -744,11 +907,6 @@ time they are restarted.</div>
 
 <fieldset class="cbi-section" id="cbi-lm-ucid">
 <legend>HeaterMeter Information</legend>
-<div class="cbi-value">API key
-  <input type="password" maxlength="32" id="set_apikey" style="font-family: monospace" />
-  <img src="cbi/reload.gif" style="vertical-align:middle" title="Reveal/hide password" onclick="var e = document.getElementById('set_apikey'); e.type = (e.type=='password') ? 'text' : 'password';" />
-  <input type="button" class="cbi-button cbi-button-apply" onclick="newApiKey()" value="New"/>
-</div>
 <div class="cbi-value cbi-value-last">Version <span id="ucid"></span><br/><span id="cerr"></span></div>
 </fieldset>
 
@@ -791,8 +949,6 @@ set the LCD backlight to 50% by entering lb=50 here).
     requires bidirectional serial operation. Possible causes of failure:
     <ul>
       <li>No HeaterMeter board attached</li>
-      <li>No HeaterMeter (AVR) firmware installed. See
-        <a href="<%=build_url("admin/lm/fw")%>">AVR Firmware</a></li>
       <li>Incorrect baud rate in /etc/config/linkmeter</li>
       <li>Hardware malfunction</li>
     </ul>

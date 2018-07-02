@@ -521,7 +521,7 @@ static state_t menuToast(button_t button)
   return Menus.getLastState();
 }
 
-void HmMenuSystem::displayToast(char *msg)
+void HmMenuSystem::displayToast(const char *msg)
 {
   /* This function attempts to clumsily split msg into two lines for display 
      and pads the extra space characters with space. If there is no comma in

@@ -42,7 +42,7 @@ public:
     const buttonread_t reader) : MenuSystem(defs, trans, reader)
     {};
 
-  void displayToast(char *msg);
+  void displayToast(const char *msg);
   char *getToastLine0(void) { return &_toastMsg[0]; }
   char *getToastLine1(void) { return &_toastMsg[sizeof(_toastMsg)/2]; }
 private:

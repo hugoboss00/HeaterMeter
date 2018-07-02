@@ -93,6 +93,7 @@ public:
 
   const unsigned char getPin(void) const { return _pin; }
   char *getName(void) { return _name;};
+  void setName(const char *name) { strncpy(_name, name, sizeof(_name)); _name[sizeof(_name) -1] = 0;}
   /* Configuration */
   // Probe Type
   unsigned char getProbeType(void) const { return _probeType; }

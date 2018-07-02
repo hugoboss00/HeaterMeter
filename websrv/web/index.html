@@ -96,12 +96,12 @@ $(document).ready(function()
         if (lastLidOpen == -1) return;
         $(this).html("Toggling...");
         var enable = (lastLidOpen == 0) ? ",,1" : ",,0";
-        $.get("admin/lm/set", {ld: enable});
+        $.get("set", {ld: enable});
     });
     
     $("#alarmclear").click(function () {
         $(this).html("Silencing...");
-        $.get("admin/lm/set", {al: "0,0,0,0,0,0,0,0"});
+        $.get("set", {al: "0,0,0,0,0,0,0,0"});
     }).show();
         
     // var o = <%= LmClient():query("$LMSU") or "{}" %>;
@@ -215,11 +215,11 @@ function togglePidInt()
   if ($("#pidint").is(":visible"))
     // Use a timeout on success to make sure the next (final) update
     // doesn't turn the display back on and leave it on
-    $.get("admin/lm/set", {tp: 0},
+    $.get("set", {tp: 0},
       function () { $("#pidint").delay(1000).fadeOut('fast'); }
     );
   else
-    $.get("admin/lm/set", {tp: 1});
+    $.get("set", {tp: 1});
 }
 
 function pidIntBar(target, val)
@@ -298,7 +298,7 @@ function legendClicked()
 function noisebtnClicked()
 {
     var probe = $(this).text();
-    $.get("admin/lm/set",
+    $.get("set",
       {tp: "," + probe });
 }
 
@@ -321,7 +321,7 @@ function refreshGraphData()
     
     var range = $("#rangeselect").val();
     var params = {nancnt: range};
-    $("#dlcsv").attr("href", "lm/hist?dl=1&" + $.param(params));
+    $("#dlcsv").attr("href", "hist?dl=1&" + $.param(params));
     $.ajax({
         type: "GET",
         url: "hist",
@@ -652,7 +652,7 @@ function tstatSuccess(csv)
 function nameChanged(value, settings)
 {
     var params = {}; params[this.id] = value;
-    $.get("lm/set", params);
+    $.get("set", params);
     return value;
 }
 

@@ -1,5 +1,7 @@
 //#include "client_http.hpp"
 #include "server_http.hpp"
+//#include "utility.hpp"
+
 #include <time.h>
 #include <pthread.h>
 
@@ -25,7 +27,8 @@ using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 //using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
 extern void getProbeData(ptree &pt);
-extern void getHistory(stringstream &csv);
+extern void getHistory(stringstream &csv, int count);
+extern void handleCommandUrl(const char *URL);
 
 void *do_server(void *);
 static pthread_t t_server;
@@ -129,28 +132,79 @@ void *do_server(void *) {
   // GET-example for the path /info
   // Responds with request-information
   server.resource["^/hist$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
-
+	SimpleWeb::CaseInsensitiveMultimap querymap = request->parse_query_string();
     stringstream stream;
 	stringstream csv;
+	int download = 0;
+	int count = -1;
 	printf("path: %s\n", request->path.c_str());
-	printf("%s\n", request->content.string().c_str());
-	
-	getHistory(csv);
+
+	SimpleWeb::CaseInsensitiveMultimap::iterator it = querymap.find("dl");
+    if (it != querymap.end())
+	{
+		download = 1;
+	}
+	it = querymap.find("nancnt");
+    if (it != querymap.end())
+	{
+		stringstream conv(it->second);
+		int value = 0;
+		conv >> value;
 		
-	stream << "HTTP/1.1 200 OK\r\n"
-                << "Content-Length: " << csv.str().length() << "\r\n\r\n"
-                << csv.str();
+		switch (value)
+		{
+		case 460:
+			count = 1;
+			break;
+		case 360:
+			count = 6;
+			break;
+		case 240:
+			count = 12;
+			break;
+		default:
+			count = 24;
+			break;
+		}
+	}
 	
+	
+	getHistory(csv, count);
+	if (download)
+	{		
+		time_t rawtime;
+		struct tm * timeinfo;
+		char buffer[80];
+
+		time (&rawtime);
+		timeinfo = localtime(&rawtime);
+
+		strftime(buffer,sizeof(buffer),"gom_%Y-%m-%d_%H_%M_%S_history.txt",timeinfo);
+		std::string filename(buffer);
+		stream << "HTTP/1.1 200 OK\r\n"
+					<< "Content-Disposition: attachment; filename=" << filename << "\r\n"
+					<< "Content-Length: " << csv.str().length() << "\r\n\r\n"
+					<< csv.str();
+	}
+	else	
+	{
+		stream << "HTTP/1.1 200 OK\r\n"
+					<< "Content-Type: text/plain\r\n"
+					<< "Content-Length: " << csv.str().length() << "\r\n\r\n"
+					<< csv.str();
+	}
     *response << stream.str();
   };
 
   // GET-example for the path /match/[number], responds with the matched string in path (number)
   // For instance a request GET /match/123 will receive: 123
-  server.resource["^/set.*$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/set$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+	SimpleWeb::QueryString querystring;
+	string str = "set?" + querystring.create(request->parse_query_string());
+	
 	printf("path: %s\n", request->path.c_str());
-    printf("param0: %s\n", request->path_match[0].str().c_str());
-    printf("param1: %s\n", request->path_match[1].str().c_str());
-    printf("param2: %s\n", request->path_match[2].str().c_str());
+    printf("query: %s\n", str.c_str());
+	handleCommandUrl(str.c_str());
 	response->write("");
   };
 
@@ -158,6 +212,10 @@ void *do_server(void *) {
   // GET-example for the path /match/[number], responds with the matched string in path (number)
   // For instance a request GET /match/123 will receive: 123
   server.resource["^/match/([0-9]+)$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+	printf("path: %s\n", request->path.c_str());
+    printf("param0: %s\n", request->path_match[0].str().c_str());
+    printf("param1: %s\n", request->path_match[1].str().c_str());
+    printf("param2: %s\n", request->path_match[2].str().c_str());
     response->write(request->path_match[1]);
   };
 

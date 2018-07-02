@@ -40,7 +40,11 @@ int init_shm()
 		if (shm_fd <= 0)
 			perror("shm_open");
 		/* configure the size of the shared memory object */
-		ftruncate(shm_fd, SIZE);
+		if (ftruncate(shm_fd, SIZE) < 0)
+		{
+			simpins = NULL;
+			return -1;
+		}
 	 
 		/* memory map the shared memory object */
 		ptr = mmap(0, SIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
