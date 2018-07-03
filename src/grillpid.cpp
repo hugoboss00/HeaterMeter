@@ -679,6 +679,16 @@ void GrillPid::setUnits(char units)
   }
 }
 
+float GrillPid::getPidConstant(unsigned char index)
+{
+	float retval = 0.0;
+	if (index < 4)
+	{
+		retval = Pid[index];
+	}
+	return retval;
+}
+
 void GrillPid::addProbeValues(int i, ptree &pt)
 {
 	ptree probe,alarm;
@@ -706,6 +716,49 @@ void GrillPid::addProbeValues(int i, ptree &pt)
 	pt.push_back(std::make_pair("", probe));
 	
 }
+
+void GrillPid::addProbeConfig(int i, ptree &pt)
+{
+	char strbuf[80];
+	if (i >= TEMP_COUNT)
+		return;
+	
+	const char *ring = "null";
+	if (Probes[i]->Alarms.getLowRinging() || Probes[i]->Alarms.getHighRinging())
+	{
+		ring = "H";
+		if (Probes[i]->Alarms.getLowRinging())
+			ring = "L";
+	}
+	
+	
+	int temp = Probes[i]->Temperature;
+	sprintf(strbuf, "pn%d", i );
+	pt.put(strbuf, Probes[i]->getName());
+	sprintf(strbuf, "pcurr%d", i );
+	pt.put(strbuf, temp);
+	sprintf(strbuf, "pt%d", i );
+	pt.put(strbuf,  Probes[i]->getProbeType());
+	sprintf(strbuf, "pcp%d", i );
+	pt.put(strbuf, 0);
+	sprintf(strbuf, "pca%d", i );
+	pt.put(strbuf, Probes[i]->Steinhart[0]);
+	sprintf(strbuf, "pcb%d", i );
+	pt.put(strbuf, Probes[i]->Steinhart[1]);
+	sprintf(strbuf, "pcc%d", i );
+	pt.put(strbuf, Probes[i]->Steinhart[2]);
+	sprintf(strbuf, "pcr%d", i );
+	pt.put(strbuf, 0);
+	sprintf(strbuf, "po%d", i );
+	pt.put(strbuf, (int)Probes[i]->Offset);
+	sprintf(strbuf, "prfn%d", i );
+	pt.put(strbuf, 0);
+	sprintf(strbuf, "prfa%d", i );
+	pt.put(strbuf, 0);
+
+
+}
+
 
 // write history entry
 // time, set, pit, food1, food2, food3, fan, servo

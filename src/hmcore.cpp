@@ -722,7 +722,8 @@ void storeAndReportProbeName(unsigned char probeIndex, const char *name)
 
 static void reportVersion(void)
 {
-  CmdSerial.write(("UCID" CSV_DELIMITER "HeaterMeter" CSV_DELIMITER HM_VERSION));
+  CmdSerial.write(("UCID" CSV_DELIMITER "HeaterMeter" CSV_DELIMITER));
+  CmdSerial.write(hm_version);
   Serial_nl();
 }
 
@@ -1346,6 +1347,63 @@ void hmcoreSetup(void)
   Menus.setState(ST_HOME_NOPROBES);
 }
 
+
+#if 0
+
+
+oflag
+PID Output:
+pidp
+pidi
+pidd
+
+Fan:
+fflor
+fmin
+fmax
+fsmax
+
+Servo:
+smin
+smax
+sceil
+#endif
+void getConfigData(ptree &pt)
+{
+	for (int i=0; i<4; i++)
+	{
+		pid.addProbeConfig(i, pt);
+	}
+	pt.put("ucid", hm_version);
+	pt.put("sp", pid.getSetPoint());
+	//LCD
+	pt.put("lb", g_LcdBacklight);
+	pt.put("lbn", g_HomeDisplayMode);
+
+	pt.put("pidp", pid.getPidConstant(PIDP));
+	pt.put("pidi", pid.getPidConstant(PIDI));
+	pt.put("pidd", pid.getPidConstant(PIDD));
+	pt.put("oflag", pid.getOutputFlags());
+	pt.put("fflor", pid.getFanActiveFloor());
+	pt.put("fmin", pid.getFanMinSpeed());
+	pt.put("fmax", pid.getFanMaxSpeed());
+	pt.put("fsmax", pid.getFanMaxStartupSpeed());
+
+	pt.put("smin", pid.getServoMinPos());
+	pt.put("smax", pid.getServoMaxPos());
+	pt.put("sceil", pid.getServoActiveCeil());
+
+	//LID
+	pt.put("lo", pid.LidOpenOffset);
+	pt.put("ld", pid.getLidOpenDuration());
+	
+	//LED
+	pt.put("le0", ledmanager.getAssignment(0));
+	pt.put("le1", ledmanager.getAssignment(1));
+	pt.put("le2", ledmanager.getAssignment(2));
+	pt.put("le3", ledmanager.getAssignment(3));
+
+}
 
 void getProbeData(ptree &pt)
 {

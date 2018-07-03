@@ -286,6 +286,8 @@ public:
 
   // PID output moving average
   float PidOutputAvg;
+  float getPidConstant(unsigned char index);
+
   // Seconds remaining in the lid open countdown
   unsigned int LidOpenResumeCountdown;
   bool isLidOpen(void) const { return LidOpenResumeCountdown != 0; }
@@ -305,6 +307,7 @@ public:
   void status(void) const;
   void pidStatus(void) const;
   void addProbeValues(int index, ptree &pt);
+  void addProbeConfig(int index, ptree &pt);
   void writeHistory(void);
   void getHistoryCsv(stringstream &csv);
 };

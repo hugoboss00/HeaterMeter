@@ -1,7 +1,7 @@
-
+VERSION = $(shell date +"%g%m%d.%H%M%S")
 LIBS = -Wl,--start-group -lm -lstdc++ -lrt -pthread -lboost_system -lboost_filesystem -lBBBio -lgomsrv -Wl,--end-group
 CC = gcc
-CFLAGS = -O2 -I ../../bbbio/BBBIOlib/BBBio_lib -I websrv -g -Wall
+CFLAGS = -O2 -I ../../bbbio/BBBIOlib/BBBio_lib -I websrv -DVERSION="\"$(VERSION)\"" -g -Wall
 LFLAGS = -Wall -L ../../bbbio/BBBIOlib -L websrv
 
 .PHONY: default all clean websrv
@@ -9,7 +9,6 @@ LFLAGS = -Wall -L ../../bbbio/BBBIOlib -L websrv
 default: websrv hm
 
 all: default
-
 
 HMOBJECTS += $(patsubst %.cpp, %.o, $(wildcard src/*.cpp))
 HMHEADERS = $(wildcard src/*.h)

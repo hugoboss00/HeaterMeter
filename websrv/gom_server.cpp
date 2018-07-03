@@ -27,6 +27,7 @@ using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 //using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
 extern void getProbeData(ptree &pt);
+extern void getConfigData(ptree &pt);
 extern void getHistory(stringstream &csv, int count);
 extern void handleCommandUrl(const char *URL);
 
@@ -94,14 +95,6 @@ void *do_server(void *) {
     // response->write(content);
   };
 
-  // POST-example for the path /json, responds firstName+" "+lastName from the posted json
-  // Responds with an appropriate error message if the posted json is not valid, or if firstName or lastName is missing
-  // Example posted json:
-  // {
-  //   "firstName": "John",
-  //   "lastName": "Smith",
-  //   "age": 25
-  // }
   server.resource["^/json$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     try {
       ptree pt;
@@ -113,7 +106,7 @@ void *do_server(void *) {
 		
 		
 		std::stringstream ss;
-		boost::property_tree::json_parser::write_json(ss, pt);
+		boost::property_tree::json_parser::write_json(ss, pt,false);
 			
 		//printf("string:%s\n", ss.str().c_str());
 
@@ -129,6 +122,31 @@ void *do_server(void *) {
 
   };
 
+  server.resource["^/conf$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+    try {
+		ptree pt;
+
+		getConfigData(pt);
+
+
+		std::stringstream ss;
+		boost::property_tree::json_parser::write_json(ss, pt,false);
+			
+		printf("conf:%s\n", ss.str().c_str());
+
+		*response << "HTTP/1.1 200 OK\r\n"
+				<< "Content-Length: " << ss.str().length() << "\r\n\r\n"
+				<< ss.str();
+    }
+    catch(const exception &e) {
+      *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n"
+                << e.what();
+    }
+
+
+  };
+
+
   // GET-example for the path /info
   // Responds with request-information
   server.resource["^/hist$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
@@ -137,7 +155,6 @@ void *do_server(void *) {
 	stringstream csv;
 	int download = 0;
 	int count = -1;
-	printf("path: %s\n", request->path.c_str());
 
 	SimpleWeb::CaseInsensitiveMultimap::iterator it = querymap.find("dl");
     if (it != querymap.end())
@@ -199,12 +216,13 @@ void *do_server(void *) {
   // GET-example for the path /match/[number], responds with the matched string in path (number)
   // For instance a request GET /match/123 will receive: 123
   server.resource["^/set$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
-	SimpleWeb::QueryString querystring;
-	string str = "set?" + querystring.create(request->parse_query_string());
-	
-	printf("path: %s\n", request->path.c_str());
-    printf("query: %s\n", str.c_str());
-	handleCommandUrl(str.c_str());
+	SimpleWeb::CaseInsensitiveMultimap querymap = request->parse_query_string();
+	for (SimpleWeb::CaseInsensitiveMultimap::iterator it = querymap.begin(); it != querymap.end(); it++)
+	{
+		string cmd = "set?" + it->first + "=" + it->second;
+		printf("q: %s=%s\n", it->first.c_str(), it->second.c_str());
+		handleCommandUrl(SimpleWeb::Percent::decode(cmd).c_str());
+	}
 	response->write("");
   };
 
@@ -221,8 +239,6 @@ void *do_server(void *) {
 
   // GET-example simulating heavy work in a separate thread
   server.resource["^/stream$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
-	printf("path: %s\n", request->path.c_str());
-	printf("%s\n", request->content.string().c_str());
     thread work_thread([response] {
 		int running = 1;
 		*response << "HTTP/1.1 200 OK\r\n"

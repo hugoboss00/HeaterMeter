@@ -15,19 +15,19 @@
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.selection.js"></script>
 <script src="https://cdn.jsdelivr.net/jquery.flot/0.8.3/jquery.flot.canvas.js"></script>
 <script type="text/javascript">
-var configHash = "{ucid,1}";
+var configHash = {};
 var apikey = ""
 var rfInterval;
 var ignoreConfigUrlUpdates;
 var coeffPresets = [
   {"name": "ET-72/73", "desc": "Maverick Industries", "stein": "2.4723753e-04,2.3402251e-04,1.3879768e-07"},
-  {"name": "ET-732", "desc": "Maverick Industries", "stein": "5.2668241e-04,2.0037400e-04,2.5703090e-08"},
+  {"name": "ET-732", "desc": "hst:Maverick Industries", "stein": "5.36924e-4,1.91396e-4,6.60399e-8"},
   {"name": "ET-735", "desc": "Maverick Industries", "stein": "7.5714216e-4,1.8829450e-4,1.4440251e-9"},
   {"name": "TX-1001X-OP", "desc": "Thermoworks Pro-Series", "stein": "7.3431401e-4,2.1574370e-4,9.5156860e-8"},
   {"name": "Vishay 10k", "desc": "Part NTCLE203E3103FB0", "stein": "1.14061e-3,2.32134e-4,9.63666e-8"},
-  {"name": "iGrill", "desc": "iGrill Probe", "stein": "0.7739251279e-3,2.088025997e-4,1.154400438e-7"}
+  {"name": "iGrill", "desc": "iGrill Probe", "stein": "0.7739251279e-3,2.088025997e-4,1.154400438e-7"},
   //{"name": "RadioShack 10k", "desc": "Part 271-110A", "stein": "8.9805316e-4,2.4926333e-4,2.0404753e-7"},
-  //{"name": "IKEA Fantast", "desc": "Article Number: 801.004.06", "stein": "0.0012555249,1.5671315e-4,3.2210954e-7"}
+  {"name": "IKEA Fantast", "desc": "Article Number: 801.004.06", "stein": "0.0012555249,1.5671315e-4,3.2210954e-7"}
   //{"name": "EPCOS 100k", "desc": "Beta 3950", "stein": "7.2237825e-4,2.1630182e-4,9.2641029e-8"}
   //{"name": "Semitec", "desc": "Part 104GT-2", "stein": "8.1129016e-4,2.1135575e-4,7.1761474e-8"}
 ];
@@ -35,7 +35,7 @@ var coeffPresets = [
 $(document).ready(function()
 {
   $.get("conf",
-    function (o) { configHash = o; configToForm(); windowLoaded(); })
+    function (o) { toConfigHash(o); configToForm(); windowLoaded(); })
     .fail(function () { connectionFailure(); })
     .always(ifrmHide);
 });
@@ -234,7 +234,6 @@ function isProbeId(hay, need)
 
 function configHashToForm()
 {
-  configHash["set_apikey"] = apikey; // not at all hacky
   for (var k in configHash)
   {
     var elem = $("#" + k);
@@ -245,7 +244,7 @@ function configHashToForm()
     if (isProbeId(k, "pcurr"))
     {
       if (val != null)
-        elem.html("current temperature " + val.toFixed(1) + "&#176;");
+        elem.html("current temperature " + parseFloat(val).toFixed(1) + "&#176;");
       else
         elem.html("off");
     }
@@ -285,6 +284,42 @@ function configHashToForm()
         .val(val * 10);
   }
 }
+
+function toConfigHash(o)
+{
+	configHash = JSON.parse(o);
+
+	<!-- var json = JSON.parse(o); -->
+    <!-- for(var i = 0; i < 4; i++) -->
+    <!-- { -->
+		<!-- configHash["pcurr"+i] = json.temps[i].c; -->
+		<!-- configHash['pn'+i] = json.temps[i].n; -->
+		<!-- configHash["pt"+i] = json.temps[i].pt; -->
+		<!-- configHash["pca"+i] = json.temps[i].pca; -->
+		<!-- configHash["pcb"+i] = json.temps[i].pcb; -->
+		<!-- configHash["pcc"+i] = json.temps[i].pcc; -->
+		<!-- configHash["pcr"+i] = json.temps[i].pcr; -->
+		<!-- if (json.temps[i].prfn !== null) -->
+			<!-- configHash["prfn"+i] = json.temps[i].prfn; -->
+		<!-- if (json.temps[i].prfa !== null) -->
+			<!-- configHash["prfa"+i] = json.temps[i].prfa; -->
+	<!-- }	 -->
+	<!-- configHash["ucid"] = json.ucid; -->
+	<!-- configHash["pidp"] = json.pidp; -->
+	<!-- configHash["pidi"] = json.pidi; -->
+	<!-- configHash["pidd"] = json.pidd; -->
+	<!-- configHash["fflor"] = json.fflor; -->
+	<!-- configHash["fmin"] = json.fmin; -->
+	<!-- configHash["fmax"] = json.fmax; -->
+	<!-- configHash["fsmax"] = json.fsmax; -->
+	<!-- configHash["smin"] = json.smin; -->
+	<!-- configHash["smax"] = json.smax; -->
+	<!-- configHash["sceil"] = json.sceil; -->
+	<!-- configHash["oflag"] = json.oflag; -->
+	
+	
+}
+
 
 function configElemChange()
 {
@@ -494,7 +529,7 @@ function updateConfigUrl(divname, h)
   {
     aValues.sort();
     var s = aValues.join(" &amp;");
-    var url = "admin/lm/set?" + aValues.join("&");
+    var url = "set?" + aValues.join("&");
     if (divname == "#updateurl")
     {
       elem.html('<a href="#"/>').children(":first").html(s);
@@ -533,9 +568,8 @@ function ifrmLoaded()
 {
   if (frameLoadFired) return;
   frameLoadFired = true;
-  apikey = $("#set_apikey").val();
-  $.get("lm/conf",
-    function (o) { configHash = o; configToForm(); windowLoaded(); })
+  $.get("conf",
+    function (o) { toConfigHash(o); configToForm(); windowLoaded(); })
     .fail(function () { window.location.reload(); })
     .always(ifrmHide);
 }

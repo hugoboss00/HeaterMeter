@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+
+const char *hm_version = VERSION;
+
 #ifdef PIN_SIMULATION
 typedef struct {
 	char name[16];

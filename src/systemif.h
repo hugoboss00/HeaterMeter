@@ -7,6 +7,9 @@
 #define 	bit_is_set(sfr, bit)   ((sfr) & _BV(bit))
 #define OUTPUT 0
 
+extern const char *hm_version;
+
+
 #define PIN_SIMULATION
 
 #ifdef PIN_SIMULATION
