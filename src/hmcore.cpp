@@ -92,7 +92,7 @@ static const struct __eeprom_data {
   6,    // lid open offset %
   240,  // lid open duration
 /*  { 0.0f, 4.0f, 0.02f, 5.0f },  // original PID constants */
-  { 0.0f, 10.0f, 0.005f, 10.0f },  // PID constants
+  { 0.0f, 10.0f, 0.01f, 10.0f },  // PID constants
   PIDMODE_STARTUP,  // PID mode
   50,   // lcd backlight (%)
 #ifdef HEATERMETER_RFM12
@@ -1348,26 +1348,6 @@ void hmcoreSetup(void)
 }
 
 
-#if 0
-
-
-oflag
-PID Output:
-pidp
-pidi
-pidd
-
-Fan:
-fflor
-fmin
-fmax
-fsmax
-
-Servo:
-smin
-smax
-sceil
-#endif
 void getConfigData(ptree &pt)
 {
 	for (int i=0; i<4; i++)
@@ -1405,8 +1385,25 @@ void getConfigData(ptree &pt)
 
 }
 
-void getProbeData(ptree &pt)
+int getPidData(ptree &pt)
 {
+	if (g_LogPidInternals)
+	{
+		static ptree oldpt;
+		pid.pidStatus(pt);
+		if (pt != oldpt)
+		{
+			oldpt = pt;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* return 1 if data has changed compared to last call, 0 otherwise */
+int getProbeData(ptree &pt)
+{
+	static ptree oldtemppt;
     ptree fan, adc, adcs;
 	ptree temps;
 	unsigned long nowtime = time(NULL);
@@ -1440,6 +1437,13 @@ void getProbeData(ptree &pt)
 		pid.addProbeValues(i, temps);
 	}
 	pt.add_child("temps",temps);
+	
+	if (temps != oldtemppt)
+	{
+		oldtemppt = temps;
+		return 1;
+	}
+	return 1;
 }
 
 void getHistory(stringstream &csv, int timespan)
@@ -1477,6 +1481,7 @@ int main(int argc, char **argv)
 	while (1)
 	{
 		hmcoreLoop();
+		// wait 5ms
 		delayMicroseconds(5000);
 	}
 }

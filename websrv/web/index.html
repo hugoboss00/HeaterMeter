@@ -240,10 +240,10 @@ function pidIntBar(target, val)
 function pidIntEvent(o)
 {
   $("#pidint").show('fast');
-  $("#pivp").html(o.p.toFixed(1) + "%"); pidIntBar("#pibp", o.p);
-  $("#pivi").html(o.i.toFixed(1) + "%"); pidIntBar("#pibi", o.i);
-  $("#pivd").html(o.d.toFixed(1) + "%"); pidIntBar("#pibd", o.d);
-  $("#pivdt").html(o.t.toFixed(2) + "&deg;");
+  $("#pivp").html(parseFloat(o.p).toFixed(1) + "%"); pidIntBar("#pibp", parseFloat(o.p));
+  $("#pivi").html(parseFloat(o.i).toFixed(1) + "%"); pidIntBar("#pibi", parseFloat(o.i));
+  $("#pivd").html(parseFloat(o.d).toFixed(1) + "%"); pidIntBar("#pibd", parseFloat(o.d));
+  $("#pivdt").html(parseFloat(o.t).toFixed(2) + "&deg;");
 }
 
 function peakEvent(o)
@@ -695,9 +695,9 @@ function checkRefreshGraphOrUpdate()
     // the RRD holds up to 480 points and the graph holds
     // less due to point consolidation, so best case
     // scenario 24pts * 10sec per poll = 4mins
-    if (max > 504)
-        refreshGraphData()
-    else
+//    if (max > 504)
+//        refreshGraphData()
+//    else
         updateGraph();
 }
 

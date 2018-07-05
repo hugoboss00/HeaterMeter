@@ -306,6 +306,7 @@ public:
   void resetLidOpenResumeCountdown(void);
   void status(void) const;
   void pidStatus(void) const;
+  void pidStatus(ptree &pt);
   void addProbeValues(int index, ptree &pt);
   void addProbeConfig(int index, ptree &pt);
   void writeHistory(void);

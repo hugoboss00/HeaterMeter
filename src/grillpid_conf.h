@@ -25,6 +25,7 @@
 #define TEMP_OUTADJUST_CNT 3
 // 2/(1+Number of samples used in the exponential moving average)
 #define TEMPPROBE_AVG_SMOOTH (2.0f/(1.0f+60.0f))
+#define PIDOUTPUT_AVG_FAST (2.0f/(1.0f+10.0f))
 #define PIDOUTPUT_AVG_SMOOTH (2.0f/(1.0f+240.0f))
 // Once entering LID OPEN mode, the minimum number of seconds to stay in
 // LID OPEN mode before autoresuming due to temperature returning to setpoint

@@ -24,6 +24,9 @@ sim_mon: sim_mon.o
 simset: sim_set.o
 	$(CC) sim_set.o $(LFLAGS) $(LIBS) -o $@
 
+simpit: simpit.o
+	$(CC) simpit.o $(LFLAGS) $(LIBS) -o $@
+
 clean:
 	-rm -f *.o
 	-rm -f $(TARGET)

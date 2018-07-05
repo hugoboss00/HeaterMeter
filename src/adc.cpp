@@ -130,7 +130,8 @@ void * Adc::adc_loop(void *argv)
 			//padc->m_adcValue[i] = pinget(buf);
 			}
 		}
-		delayMicroseconds(2000);
+		// wait 50ms
+		delayMicroseconds(1000);
 	}
 }
 
@@ -155,7 +156,8 @@ void * Adc::adc_loop(void *argv)
 				padc->filterAdc(i, padc->m_buffer[i][0]);
 			}
 		}
-		delayMicroseconds(1000);
+		// wait 50ms
+		delayMicroseconds(50000);
 	}
 }
 #endif

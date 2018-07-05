@@ -8,6 +8,7 @@ public:
 	Pwm();
 	void init(int pin, float freq);
 	void setValue(float duty);
+	void setValue(int output, int servo_min, int servo_max);
 	int  getValue();
 	
 private:

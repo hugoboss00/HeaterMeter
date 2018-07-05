@@ -316,7 +316,7 @@ inline void GrillPid::calcPidOutput(void)
   {
     _pidCurrent[PIDI] += Pid[PIDI] * error;
     // I term can never be negative, because if curr = set, then P and D are 0, so I must be output
-    if (_pidCurrent[PIDI] < 0.0f) _pidCurrent[PIDI] = 0.0f;
+    //if (_pidCurrent[PIDI] < 0.0f) _pidCurrent[PIDI] = 0.0f;
   }
 
   // DDDDD = fan speed percent per degree of change over TEMPPROBE_AVG_SMOOTH period
@@ -459,20 +459,30 @@ unsigned int GrillPid::getServoStepNext(unsigned int curr)
 inline void GrillPid::commitServoOutput(void)
 {
 #if defined(GRILLPID_SERVO_ENABLED)
-  unsigned char output;
+  unsigned int output_pct;
+  unsigned int output_pw_us;
+  float duty;
   // Servo is open 0% at 0 PID output and 100% at _servoActiveCeil PID output
   if (_pidOutput >= _servoActiveCeil)
-    output = 100;
+    output_pct = 100;
   else
-    output = (unsigned int)_pidOutput * 100U / _servoActiveCeil;
+    output_pct = (unsigned int)_pidOutput * 100U / _servoActiveCeil;
 
   if (bit_is_set(_outputFlags, PIDFLAG_INVERT_SERVO))
-    output = 100 - output;
+    output_pct = 100 - output_pct;
 
   // Get the output speed in 10x usec by LERPing between min and max
-  output = mappct(output, _servoMinPos, _servoMaxPos);
-#if 0
-  unsigned int targetTicks = uSecToTicks(10U * output);
+	printf("pid output:%d, temp status:%c\n", _pidOutput, Probes[0]->getTempStatus());
+	// calculate the pulse width
+    output_pw_us = mappct(output_pct, (_servoMinPos * 10), (_servoMaxPos * 10));
+	// calculate output duty(% of period) period is 20000us (50Hz) the period is hardcoded here, because it must match the dimension of the config entry
+	duty = (output_pw_us * 100.0)/20000.0;
+	printf("servo output:%d%%, pw:%dus, duty:%f\n", output_pct,output_pw_us, duty);
+#ifdef PIN_SIMULATION
+	pinset("SERVO",output_pct);
+#endif
+	servo.setValue(duty);
+  #if 0
 #if defined(SERVO_MIN_THRESH)
   if (_servoHoldoff < 0xff)
     ++_servoHoldoff;
@@ -653,14 +663,26 @@ void GrillPid::pidStatus(void) const
     CmdSerial.write("HMPS" CSV_DELIMITER);
     for (unsigned char i=PIDB; i<=PIDD; ++i)
     {
-      CmdSerial.write(_pidCurrent[i], DEC);
+      CmdSerial.write(_pidCurrent[i]);
       Serial_csv();
     }
 
-    CmdSerial.write(pit->Temperature - pit->TemperatureAvg, DEC);
+    CmdSerial.write(pit->Temperature - pit->TemperatureAvg);
     Serial_nl();
   }
 #endif
+}
+
+void GrillPid::pidStatus(ptree &pt)
+{
+  TempProbe const* const pit = Probes[TEMP_CTRL];
+  if (pit->hasTemperature())
+  {
+	pt.put("p",_pidCurrent[PIDP]);
+	pt.put("i",_pidCurrent[PIDI]);
+	pt.put("d",_pidCurrent[PIDD]);
+	pt.put("t",pit->Temperature - pit->TemperatureAvg);
+  }
 }
 
 void GrillPid::setUnits(char units)
@@ -704,7 +726,7 @@ void GrillPid::addProbeValues(int i, ptree &pt)
 	}
 	
 	
-	int temp = Probes[i]->Temperature;
+	float temp = Probes[i]->Temperature;
 	probe.put("n", Probes[i]->getName());
 	probe.put("c", temp);
 	probe.put("dph", "1.3");
@@ -732,7 +754,7 @@ void GrillPid::addProbeConfig(int i, ptree &pt)
 	}
 	
 	
-	int temp = Probes[i]->Temperature;
+	float temp = Probes[i]->Temperature;
 	sprintf(strbuf, "pn%d", i );
 	pt.put(strbuf, Probes[i]->getName());
 	sprintf(strbuf, "pcurr%d", i );

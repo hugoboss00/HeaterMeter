@@ -26,7 +26,8 @@ using namespace boost::property_tree;
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 //using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
-extern void getProbeData(ptree &pt);
+extern int getProbeData(ptree &pt);
+extern int getPidData(ptree &pt);
 extern void getConfigData(ptree &pt);
 extern void getHistory(stringstream &csv, int count);
 extern void handleCommandUrl(const char *URL);
@@ -241,6 +242,7 @@ void *do_server(void *) {
   server.resource["^/stream$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     thread work_thread([response] {
 		int running = 1;
+		int count = 0;
 		*response << "HTTP/1.1 200 OK\r\n"
 		<< "Content-Type: text/event-stream\r\n"
 		<< "Cache-Control: no-cache\r\n"
@@ -248,28 +250,49 @@ void *do_server(void *) {
 		response->send();
 		while (running)
 		{
-			ptree pt;
-
-			getProbeData(pt);
-			std::stringstream ss;
-			ss << "event: hmstatus\n";
-			ss << "data: ";
-			boost::property_tree::json_parser::write_json(ss, pt, false);
-			ss << "\n\n";
+			count++;
 			
-			//printf("string:%s\n", ss.str().c_str());
+			ptree pt;
+			if ((getProbeData(pt) != 0) || ((count % 10) == 0))
+			{
+				std::stringstream ss;
+				ss << "event: hmstatus\n";
+				ss << "data: ";
+				boost::property_tree::json_parser::write_json(ss, pt, false);
+				ss << "\n\n";
+			
+				//printf("string:%s\n", ss.str().c_str());
+				*response << ss.str();
+				response->send([&running](const SimpleWeb::error_code &ec) {
+					  if(ec)
+					  {
+						running = 0;
+					  }
+					});
+			}
+			pt.clear();
+			
+			if (getPidData(pt) != 0)
+			{
+				std::stringstream ss;
+				ss << "event: pidint\n";
+				ss << "data: ";
+				boost::property_tree::json_parser::write_json(ss, pt, false);
+				ss << "\n\n";
+			
+				//printf("string:%s\n", ss.str().c_str());
+				*response << ss.str();
+				response->send([&running](const SimpleWeb::error_code &ec) {
+					  if(ec)
+					  {
+						running = 0;
+					  }
+					});
+			}
 
-			*response << ss.str();
-			response->send([&running](const SimpleWeb::error_code &ec) {
-                  if(ec)
-				  {
-					running = 0;
-				  }
-                });
 
 
-
-			this_thread::sleep_for(chrono::seconds(10));
+			this_thread::sleep_for(chrono::seconds(1));
 
 	  }
     });
