@@ -10,7 +10,7 @@
 extern const char *hm_version;
 
 
-#define PIN_SIMULATION
+//#define PIN_SIMULATION
 
 #ifdef PIN_SIMULATION
 int pinget(char *key);

@@ -105,6 +105,7 @@ void Adc::filterAdc(int pin, int adc)
   }
   else
   {
+	  // printf("adc new val(%d):%d\n", pin, adcState[pin].accumulator);
       adcState[pin].analogRead = adcState[pin].accumulator;
       adcState[pin].analogRange = adcState[pin].thisHigh - adcState[pin].thisLow;
 	  adcState[pin].cnt = adcState[pin].top;
@@ -130,7 +131,7 @@ void * Adc::adc_loop(void *argv)
 			//padc->m_adcValue[i] = pinget(buf);
 			}
 		}
-		// wait 50ms
+		// wait 1ms
 		delayMicroseconds(1000);
 	}
 }
@@ -143,21 +144,21 @@ void * Adc::adc_loop(void *argv)
 	{
 		for (int i=0; i < NUM_BBBIO_ADCS; i++)
 		{
-			if (adcState[i].enabled)
+			if (padc->adcState[i].enabled)
 			{
-				BBBIO_ADCTSC_channel_enable(padc->m_pins[i]);
+				BBBIO_ADCTSC_channel_enable(getBBBPin(i));
 			}
 		}
 		BBBIO_ADCTSC_work(BUFFER_SIZE);
 		for (int i=0; i < NUM_BBBIO_ADCS; i++)
 		{
-			if (adcState[i].enabled)
+			if (padc->adcState[i].enabled)
 			{
 				padc->filterAdc(i, padc->m_buffer[i][0]);
 			}
 		}
-		// wait 50ms
-		delayMicroseconds(50000);
+		// wait 1ms
+		delayMicroseconds(1000);
 	}
 }
 #endif
@@ -249,7 +250,38 @@ void Adc::init(int pin[], int adccount)
 
 	pthread_create(&adc_thread, NULL, &adc_loop, this);
 	pthread_setname_np(adc_thread, "gom_adc");
-	
+#if 0
+	int ret;
+	struct sched_param params;
+    // We'll set the priority to the maximum.
+    params.sched_priority = sched_get_priority_max(SCHED_FIFO);	
+    printf("Trying to set thread realtime prio = %d\n", params.sched_priority);
+ 
+     // Attempt to set thread real-time priority to the SCHED_FIFO policy
+     ret = pthread_setschedparam(adc_thread, SCHED_FIFO, &params);
+     if (ret != 0) {
+         // Print the error
+         printf("Unsuccessful in setting thread realtime prio\n");
+         return;     
+     }
+     // Now verify the change in thread priority
+     int policy = 0;
+     ret = pthread_getschedparam(adc_thread, &policy, &params);
+     if (ret != 0) {
+         printf("Couldn't retrieve real-time scheduling paramers\n");
+         return;
+     }
+ 
+     // Check the correct policy was applied
+     if(policy != SCHED_FIFO) {
+         printf("Scheduling is NOT SCHED_FIFO!\n");
+     } else {
+         printf("SCHED_FIFO OK\n");
+     }
+ 
+     // Print thread scheduling priority
+     printf("Thread priority is %d\n",params.sched_priority);
+#endif
 }
 
 void Adc::adcDump(void)

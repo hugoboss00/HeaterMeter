@@ -286,6 +286,7 @@ public:
 
   // PID output moving average
   float PidOutputAvg;
+  float PidOutputAvg_fast;
   float getPidConstant(unsigned char index);
 
   // Seconds remaining in the lid open countdown

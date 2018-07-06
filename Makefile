@@ -1,8 +1,8 @@
 VERSION = $(shell date +"%g%m%d.%H%M%S")
 LIBS = -Wl,--start-group -lm -lstdc++ -lrt -pthread -lboost_system -lboost_filesystem -lBBBio -lgomsrv -Wl,--end-group
 CC = gcc
-CFLAGS = -O2 -I ../../bbbio/BBBIOlib/BBBio_lib -I websrv -DVERSION="\"$(VERSION)\"" -g -Wall
-LFLAGS = -Wall -L ../../bbbio/BBBIOlib -L websrv
+CFLAGS = -O2 -I ../BBBIOlib/BBBio_lib -I websrv -DVERSION="\"$(VERSION)\"" -g -Wall
+LFLAGS = -Wall -L ../BBBIOlib -L websrv
 
 .PHONY: default all clean websrv
 

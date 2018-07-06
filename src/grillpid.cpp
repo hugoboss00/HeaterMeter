@@ -316,7 +316,7 @@ inline void GrillPid::calcPidOutput(void)
   {
     _pidCurrent[PIDI] += Pid[PIDI] * error;
     // I term can never be negative, because if curr = set, then P and D are 0, so I must be output
-    //if (_pidCurrent[PIDI] < 0.0f) _pidCurrent[PIDI] = 0.0f;
+    if (_pidCurrent[PIDI] < 0.0f) _pidCurrent[PIDI] = 0.0f;
   }
 
   // DDDDD = fan speed percent per degree of change over TEMPPROBE_AVG_SMOOTH period
@@ -371,14 +371,14 @@ inline void GrillPid::commitFanOutput(void)
   const unsigned int LONG_PWM_PERIOD = 10000;
   const unsigned int PERIOD_SCALE = (LONG_PWM_PERIOD / TEMP_MEASURE_PERIOD);
 
-  if (_pidOutput < _fanActiveFloor)
+  if (PidOutputAvg_fast < _fanActiveFloor)
     _fanSpeed = 0;
   else
   {
     // _fanActiveFloor should be constrained to 0-99 to prevent a divide by 0
     unsigned char range = 100 - _fanActiveFloor;
     unsigned char max = getFanCurrentMaxSpeed();
-    _fanSpeed = (unsigned int)(_pidOutput - _fanActiveFloor) * max / range;
+    _fanSpeed = (unsigned int)((PidOutputAvg_fast - _fanActiveFloor) * max / range);
   }
 
   /* For anything above _minFanSpeed, do a nomal PWM write.
@@ -463,21 +463,21 @@ inline void GrillPid::commitServoOutput(void)
   unsigned int output_pw_us;
   float duty;
   // Servo is open 0% at 0 PID output and 100% at _servoActiveCeil PID output
-  if (_pidOutput >= _servoActiveCeil)
+  if (PidOutputAvg_fast >= _servoActiveCeil)
     output_pct = 100;
   else
-    output_pct = (unsigned int)_pidOutput * 100U / _servoActiveCeil;
+    output_pct = (unsigned int)(PidOutputAvg_fast * 100.0 / _servoActiveCeil);
 
   if (bit_is_set(_outputFlags, PIDFLAG_INVERT_SERVO))
     output_pct = 100 - output_pct;
 
   // Get the output speed in 10x usec by LERPing between min and max
-	printf("pid output:%d, temp status:%c\n", _pidOutput, Probes[0]->getTempStatus());
+	printf("pid output: %f%%, temp status:%c\n", PidOutputAvg_fast, Probes[0]->getTempStatus());
 	// calculate the pulse width
     output_pw_us = mappct(output_pct, (_servoMinPos * 10), (_servoMaxPos * 10));
 	// calculate output duty(% of period) period is 20000us (50Hz) the period is hardcoded here, because it must match the dimension of the config entry
 	duty = (output_pw_us * 100.0)/20000.0;
-	printf("servo output:%d%%, pw:%dus, duty:%f\n", output_pct,output_pw_us, duty);
+	//printf("servo output:%d%%, pw:%dus, duty:%f\n", output_pct,output_pw_us, duty);
 #ifdef PIN_SIMULATION
 	pinset("SERVO",output_pct);
 #endif
@@ -508,9 +508,11 @@ inline void GrillPid::commitServoOutput(void)
 
 inline void GrillPid::commitPidOutput(void)
 {
-  calcExpMovingAverage(PIDOUTPUT_AVG_SMOOTH, &PidOutputAvg, _pidOutput);
-  commitFanOutput();
-  commitServoOutput();
+	
+	calcExpMovingAverage(PIDOUTPUT_AVG_SMOOTH, &PidOutputAvg, _pidOutput);
+	calcExpMovingAverage(PIDOUTPUT_AVG_FAST, &PidOutputAvg_fast, _pidOutput);
+	commitFanOutput();
+	commitServoOutput();
 }
 
 bool GrillPid::isAnyFoodProbeActive(void) const
@@ -594,7 +596,6 @@ bool GrillPid::doWork(void)
   if (elapsed < (TEMP_MEASURE_PERIOD / TEMP_OUTADJUST_CNT))
     return false;
   _lastWorkMillis = millis();
-
   if (_periodCounter < (TEMP_OUTADJUST_CNT-1))
   {
     ++_periodCounter;
@@ -800,10 +801,10 @@ void GrillPid::writeHistory(void)
 	
 	unsigned char servo_output;
 	// Servo is open 0% at 0 PID output and 100% at _servoActiveCeil PID output
-	if (_pidOutput >= _servoActiveCeil)
+	if (PidOutputAvg_fast >= _servoActiveCeil)
 		servo_output = 100;
 	else
-		servo_output = (unsigned int)_pidOutput * 100U / _servoActiveCeil;
+		servo_output = (unsigned int)(PidOutputAvg_fast * 100.0 / _servoActiveCeil);
 	
 	entry.time = time(NULL);
 	entry.set  = pid.getSetPoint();

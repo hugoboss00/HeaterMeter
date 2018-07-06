@@ -22,7 +22,7 @@ void Pwm::setValue(float duty)
 {
 	float period = 1/m_freq;
 	float pw = period * duty / 100.0f;
-	printf("pwm pulsewidth : %f , duty : %f\n" ,pw ,duty);
+	//printf("pwm pulsewidth : %f , duty : %f\n" ,pw ,duty);
 #ifdef PIN_SIMULATION
 #else
     BBBIO_PWMSS_Setting(m_pin , m_freq ,duty , duty);

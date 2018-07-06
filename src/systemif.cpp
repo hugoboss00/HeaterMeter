@@ -108,7 +108,7 @@ unsigned int millis (void)
     long            ms; // Milliseconds
     struct timespec spec;
 
-    clock_gettime(CLOCK_REALTIME, &spec);
+    clock_gettime(CLOCK_MONOTONIC, &spec);
 
     ms  = spec.tv_sec *  1000;
     ms += round(spec.tv_nsec / 1.0e6); // Convert nanoseconds to milliseconds
@@ -119,6 +119,14 @@ unsigned int millis (void)
 
 void delayMicroseconds(int us)
 {
+	
+    struct timespec req={0};
+    req.tv_sec=0;
+    req.tv_nsec= us*1000 ;
+    clock_nanosleep(CLOCK_MONOTONIC, 0, &req, NULL);
+    return;
+	
+#if 0	
 	struct timespec a;
 
 	a.tv_nsec=(us) * 1000L;
@@ -126,7 +134,7 @@ void delayMicroseconds(int us)
 	if (nanosleep(&a, NULL) != 0) {
 		perror("delay_ms error:");
 	}
-
+#endif
 #if 0
 	int delay = us ;
 	if (delay == 0)
