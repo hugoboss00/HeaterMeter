@@ -188,6 +188,7 @@ void TempProbe::processPeriod(void)
 
 void TempProbe::setTemperatureC(float T)
 {
+	printf("Set Temperature(%d): %f\n", getPin(), T);
   // Sanity - anything less than -20C (-4F) or greater than 500C (932F) is rejected
   if (T <= -20.0f)
     _tempStatus = TSTATUS_LOW;

@@ -87,7 +87,6 @@ void ISR_task(int ADC_vect)
 #endif
 void Adc::filterAdc(int pin, int adc)
 {
-
   if (adcState[pin].cnt != 0)
   {
     --adcState[pin].cnt;
@@ -146,10 +145,12 @@ void * Adc::adc_loop(void *argv)
 		{
 			if (padc->adcState[i].enabled)
 			{
+				//printf("enable channel for pin %d\n",getBBBPin(i));
 				BBBIO_ADCTSC_channel_enable(getBBBPin(i));
 			}
 		}
-		BBBIO_ADCTSC_work(BUFFER_SIZE);
+		BBBIO_ADCTSC_work(BUFFER_SIZE); 
+		
 		for (int i=0; i < NUM_BBBIO_ADCS; i++)
 		{
 			if (padc->adcState[i].enabled)
@@ -192,6 +193,9 @@ unsigned int Adc::analogReadOver(int hmpin, unsigned char bits)
   int pin = getBBBPin(hmpin);
   if (pin < 0)
 	  return 0;
+  
+  if (!adcState[pin].enabled)
+	  return 0;
   a = adcState[pin].analogRead;
 
   // If requesting a highfreq pin, scale down from reduced resolution
@@ -199,7 +203,8 @@ unsigned int Adc::analogReadOver(int hmpin, unsigned char bits)
     return a >> (12 - bits);
 
   // Scale up to 256 samples then divide by 2^4 for 14 bit oversample
-  unsigned int retVal = a * 16 / adcState[pin].top;
+  unsigned int retVal = a * 4 / adcState[pin].top;
+  //printf("ADC%d: %d\n", pin, retVal >> (14 - bits));
   return retVal >> (14 - bits);
 }
 
@@ -229,7 +234,8 @@ void Adc::init(int pin[], int adccount)
 	printf("ADC init %d\n", adccount);
 	if ((adctsc_ptr != NULL) &&( adctsc_ptr != MAP_FAILED))
 	{
-		BBBIO_ADCTSC_module_ctrl(BBBIO_ADC_WORK_MODE_TIMER_INT, clk_div);
+		BBBIO_ADCTSC_module_ctrl(BBBIO_ADC_WORK_MODE_BUSY_POLLING, clk_div);
+		//BBBIO_ADC_WORK_MODE_TIMER_INT
 	}
 	else
 	{
@@ -240,11 +246,12 @@ void Adc::init(int pin[], int adccount)
 	{
 		int bbbPin = getBBBPin(pin[i]);
 		adcState[bbbPin].enabled = 1;
-		printf("ADC init channel ADC%d\n", i);
+		printf("ADC init channel ADC%d\n", bbbPin);
 		if ((adctsc_ptr != NULL) &&( adctsc_ptr != MAP_FAILED))
 		{
+			printf("init channel for pin %d\n", bbbPin);
 			BBBIO_ADCTSC_channel_ctrl(bbbPin, BBBIO_ADC_STEP_MODE_SW_CONTINUOUS, open_dly, sample_dly, \
-				BBBIO_ADC_STEP_AVG_1, m_buffer[i], BUFFER_SIZE);
+				BBBIO_ADC_STEP_AVG_1, m_buffer[bbbPin], BUFFER_SIZE);
 		}
 	}
 

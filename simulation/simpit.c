@@ -89,7 +89,7 @@ int pinget(char *key)
 
 float calcTemp(unsigned int adcval)
 {
-  const float ADCmax = 1023;
+  const float ADCmax = 1023 * 16;
 
   /* if PROBETYPE_INTERNAL */
   float R, T;
@@ -104,7 +104,7 @@ float calcTemp(unsigned int adcval)
 
 int calcAdc(float temperatur)
 {
-	int adc=1023;
+	int adc=1023 * 16;
 	float calc=0.0;
 	while ((adc > 0) && (calc < temperatur))
 		calc = calcTemp(--adc);

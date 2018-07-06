@@ -25,8 +25,8 @@ void Pwm::setValue(float duty)
 	//printf("pwm pulsewidth : %f , duty : %f\n" ,pw ,duty);
 #ifdef PIN_SIMULATION
 #else
-    BBBIO_PWMSS_Setting(m_pin , m_freq ,duty , duty);
-	BBBIO_ehrPWM_Enable(m_pin);
+//    BBBIO_PWMSS_Setting(m_pin , m_freq ,duty , duty);
+//	BBBIO_ehrPWM_Enable(m_pin);
 #endif
 }
 
