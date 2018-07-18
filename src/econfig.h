@@ -11,7 +11,7 @@
 
 #define USE_CONFIG_FILE
 #define CONFIG_FILESIZE 4096
-#define CONFIG_FILE "hm.cfg"
+#define CONFIG_FILE "/etc/hm.cfg"
 
 
 class HMConfig {
