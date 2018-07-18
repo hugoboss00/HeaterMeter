@@ -216,11 +216,14 @@ void TempProbe::status(void) const
 
 void GrillPid::init(void)
 {
+	// servo (pwm) init must be done before iolib_init(), because
+	// Pwm class is preparing pwm controller.
+#if defined(GRILLPID_SERVO_ENABLED)
+  servo.init(PWM_PIN0A, FREQ_SERVO);
+#endif
+
   iolib_init();
 
-#if defined(GRILLPID_SERVO_ENABLED)
-  servo.init(BBBIO_PWMSS0, FREQ_SERVO);
-#endif
   // Initialize ADC 
   adc.init(hm_AdcPins, NUM_ANALOG_INPUTS);
 
@@ -482,7 +485,7 @@ inline void GrillPid::commitServoOutput(void)
 #ifdef PIN_SIMULATION
 	pinset("SERVO",output_pct);
 #endif
-	servo.setValue(duty);
+	servo.setValue(output_pw_us * 1000);
   #if 0
 #if defined(SERVO_MIN_THRESH)
   if (_servoHoldoff < 0xff)

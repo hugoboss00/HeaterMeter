@@ -42,7 +42,7 @@
 // timing of the servo pulse length
 #define SERVO_BUSYWAIT         0
 
-#define NUM_ANALOG_INPUTS 2
+#define NUM_ANALOG_INPUTS 3
 
 #define PROBE_NAME_SIZE 13
 
