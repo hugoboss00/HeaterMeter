@@ -465,7 +465,6 @@ inline void GrillPid::commitServoOutput(void)
 #if defined(GRILLPID_SERVO_ENABLED)
   unsigned int output_pct;
   unsigned int output_pw_us;
-  float duty;
   // Servo is open 0% at 0 PID output and 100% at _servoActiveCeil PID output
   if (PidOutputAvg_fast >= _servoActiveCeil)
     output_pct = 100;
@@ -479,14 +478,11 @@ inline void GrillPid::commitServoOutput(void)
 	printf("pid output: %f%%, temp status:%c\n", PidOutputAvg_fast, Probes[0]->getTempStatus());
 	// calculate the pulse width
     output_pw_us = mappct(output_pct, (_servoMinPos * 10), (_servoMaxPos * 10));
-	// calculate output duty(% of period) period is 20000us (50Hz) the period is hardcoded here, because it must match the dimension of the config entry
-	duty = (output_pw_us * 100.0)/20000.0;
-	//printf("servo output:%d%%, pw:%dus, duty:%f\n", output_pct,output_pw_us, duty);
 #ifdef PIN_SIMULATION
 	pinset("SERVO",output_pct);
 #endif
 	servo.setValue(output_pw_us * 1000);
-  #if 0
+#if 0
 #if defined(SERVO_MIN_THRESH)
   if (_servoHoldoff < 0xff)
     ++_servoHoldoff;

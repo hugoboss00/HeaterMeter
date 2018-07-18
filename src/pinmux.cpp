@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <BBBiolib.h>
 #include "pindef.h"
+#include "pwm.h"
 
 #undef PIN_DEFINE
 #define PIN_DEFINE(namehm,definehm,definebbbio) \

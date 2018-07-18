@@ -19,6 +19,7 @@ Pwm::Pwm()
 void Pwm::initController()
 {
 	int periodns = 1000000000 / m_freq;
+	write(m_chipPath, "export", m_channel);
 	write(m_controllerPath, "period", periodns);
 	write(m_controllerPath, "enable", 1);
 }
@@ -34,25 +35,31 @@ void Pwm::init(int pin, float freq)
 		case PWM_PIN0A:
 			m_chipPath = "/sys/class/pwm/pwmchip0";
 			m_controllerPath = "/sys/class/pwm/pwm-0:0";
+			m_channel = 0;
 			break;
 		case PWM_PIN0B:
 			m_chipPath = "/sys/class/pwm/pwmchip0";
+			m_channel = 1;
 			m_controllerPath = "/sys/class/pwm/pwm-0:1";
 			break;
 		case PWM_PIN1A:
 			m_chipPath = "/sys/class/pwm/pwmchip2";
+			m_channel = 0;
 			m_controllerPath = "/sys/class/pwm/pwm-2:0";
 			break;
 		case PWM_PIN1B:
 			m_chipPath = "/sys/class/pwm/pwmchip2";
+			m_channel = 1;
 			m_controllerPath = "/sys/class/pwm/pwm-2:1";
 			break;
 		case PWM_PIN2A:
 			m_chipPath = "/sys/class/pwm/pwmchip4";
+			m_channel = 0;
 			m_controllerPath = "/sys/class/pwm/pwm-4:0";
 			break;
 		case PWM_PIN2B:
 			m_chipPath = "/sys/class/pwm/pwmchip4";
+			m_channel = 1;
 			m_controllerPath = "/sys/class/pwm/pwm-4:1";
 			break;
 			

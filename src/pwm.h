@@ -1,6 +1,9 @@
 #ifndef _PWM_H_
 #define _PWM_H_
 
+#include <string>
+using namespace std;
+
 #define FREQ_SERVO 50.0f
 #define PWM_PIN0A 1
 #define PWM_PIN0B 2
@@ -24,6 +27,7 @@ private:
 	void initController();
 	int m_pin;
 	float m_freq;
+	int m_channel;
 	string m_chipPath;
 	string m_controllerPath;
 };
