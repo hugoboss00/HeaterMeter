@@ -159,7 +159,7 @@ void * Adc::adc_loop(void *argv)
 			}
 		}
 		// wait 1ms
-		delayMicroseconds(1000);
+		delayMicroseconds(5000);
 	}
 }
 #endif

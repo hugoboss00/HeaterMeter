@@ -253,14 +253,15 @@ void GrillPid::setOutputFlags(unsigned char value)
   _outputFlags = value;
 
   unsigned char newTop;
-  // 50Hz = 192.31 samples
+  // 1 sample per 5ms
+  // 50Hz = 4 samples per period
   if (bit_is_set(value, PIDFLAG_LINECANCEL_50))
-     newTop = 192;
-  // 60Hz = 160.25 samples
+     newTop = 4 * 10;
+  // 60Hz = 6 samples per period
   else if (bit_is_set(value, PIDFLAG_LINECANCEL_60))
-    newTop = 160;
+    newTop = 6 * 10;
   else
-    newTop = 255;
+    newTop = 40;
 
   adc.setTop(newTop);
 }
