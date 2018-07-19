@@ -23,12 +23,12 @@ using namespace boost::property_tree;
 using namespace std;
 
 typedef struct {
-	unsigned long time;
-	unsigned char set;
-	unsigned char pit;
-	unsigned char food1;
-	unsigned char food2;
-	unsigned char food3;
+	unsigned long 	time;
+	unsigned char 	set;
+	float 			pit;
+	float			food1;
+	float			food2;
+	float			food3;
 	unsigned char fan;
 	unsigned char servo;
 }tHISTORY_ENTRY;
@@ -311,7 +311,7 @@ public:
   void addProbeValues(int index, ptree &pt);
   void addProbeConfig(int index, ptree &pt);
   void writeHistory(void);
-  void getHistoryCsv(stringstream &csv);
+  void getHistoryCsv(stringstream &csv, int timespan);
 };
 
 #endif /* __GRILLPID_H__ */

@@ -4,6 +4,11 @@ CC = gcc
 CFLAGS = -O2 -I ../BBBIOlib/BBBio_lib -I websrv -DVERSION="\"$(VERSION)\"" -g -Wall
 LFLAGS = -Wall -L ../BBBIOlib -L websrv
 
+
+ifeq ("$(wildcard /sys/class/pwm/pwmchip0/export)","")
+	CFLAGS += -DPIN_SIMULATION
+endif
+
 .PHONY: default all clean websrv
 
 default: websrv hm

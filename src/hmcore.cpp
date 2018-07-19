@@ -1448,7 +1448,7 @@ int getProbeData(ptree &pt)
 
 void getHistory(stringstream &csv, int timespan)
 {
-	pid.getHistoryCsv(csv);
+	pid.getHistoryCsv(csv, timespan);
 }
 
 void hmcoreLoop(void)

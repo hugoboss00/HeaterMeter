@@ -89,7 +89,7 @@ int pinget(char *key)
 
 float calcTemp(unsigned int adcval)
 {
-  const float ADCmax = 1023 * 16;
+  const float ADCmax = 1023 * 4;
 
   /* if PROBETYPE_INTERNAL */
   float R, T;
@@ -104,7 +104,7 @@ float calcTemp(unsigned int adcval)
 
 int calcAdc(float temperatur)
 {
-	int adc=1023 * 16;
+	int adc=1023 * 4;
 	float calc=0.0;
 	while ((adc > 0) && (calc < temperatur))
 		calc = calcTemp(--adc);
@@ -153,6 +153,7 @@ int main(int argc, char **argv)
 	{
 		int servo = pinget("SERVO");
 		int adc = calcAdc(temperature);
+		printf("temp:%f, adc:%d, temp2:%f\n", temperature, adc, calcTemp(adc));
 		deltat += ((-50.0 + servo)/50.0) * ((float)time_constant*intervall / 60.0);
 		printf("add %f to temperatur, servo:%d\n", deltat, servo);
 		pinset("ADC5", adc);

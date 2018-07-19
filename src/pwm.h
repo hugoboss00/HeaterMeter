@@ -18,18 +18,23 @@ public:
 	Pwm();
 	void init(int pin, float freq);
 	//void setValue(float duty);
-	void setValue(int dutyns);
+	void setValue(int dutynsm, int fast=0);
 	int  getValue();
-	
-private:
+	void lock(int time_sec);
+	static void * pwm_loop(void *argv);
 	int write(string path, string filename, string value);
 	int write(string path, string filename, int value);
+	int m_current_dc;
+	int m_target_dc;
+	string m_chipPath;
+	string m_controllerPath;
+	
+private:
 	void initController();
 	int m_pin;
 	float m_freq;
 	int m_channel;
-	string m_chipPath;
-	string m_controllerPath;
+	unsigned long m_locktarget;
 };
 
 

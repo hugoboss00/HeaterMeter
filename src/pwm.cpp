@@ -2,6 +2,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include "systemif.h"
+#include <pthread.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -14,6 +15,15 @@ using namespace std;
 
 Pwm::Pwm()
 {
+	m_current_dc = 0;
+	m_target_dc = 0;
+	m_locktarget = 0;
+}
+
+void Pwm::lock(int time_sec)
+{
+	m_locktarget = time(NULL) + time_sec;
+	
 }
 
 void Pwm::initController()
@@ -29,6 +39,7 @@ void Pwm::init(int pin, float freq)
 {
 	m_freq = freq;
 	m_pin = pin;
+	pthread_t pwm_thread;
 
 	switch (pin)
 	{
@@ -66,6 +77,9 @@ void Pwm::init(int pin, float freq)
 	}
 
 	initController();
+	pthread_create(&pwm_thread, NULL, &pwm_loop, this);
+	pthread_setname_np(pwm_thread, "gom_pwm");
+
 }
 
 #if 0
@@ -81,10 +95,21 @@ void Pwm::setValue(float duty)
 #endif
 }
 #endif 
-void Pwm::setValue(int dutyns)
+void Pwm::setValue(int dutyns, int fast)
 {
-	printf("pwm pulsewidth : %d ns\n" ,dutyns);
-	write(m_controllerPath, "duty_cycle", dutyns);
+	if (m_locktarget < time(NULL))
+	{
+		printf("pwm pulsewidth : %d ns\n" ,dutyns);
+		if (fast)
+		{
+			m_target_dc = m_current_dc = dutyns;
+			write(m_controllerPath, "duty_cycle", dutyns);
+		}
+		else
+		{
+			m_target_dc = dutyns;
+		}
+	}
 }
 
 int  Pwm::getValue()
@@ -94,6 +119,8 @@ int  Pwm::getValue()
 
 int Pwm::write(string path, string filename, string value){
    ofstream fs;
+#ifdef PIN_SIMULATION
+#else
    fs.open((path + "/" + filename).c_str());
    if (!fs.is_open()){
 	   printf("%s:\n",(path + "/" + filename).c_str());
@@ -102,6 +129,7 @@ int Pwm::write(string path, string filename, string value){
    }
    fs << value;
    fs.close();
+#endif
    return 0;
 }
 
@@ -109,4 +137,24 @@ int Pwm::write(string path, string filename, int value){
    stringstream s;
    s << value;
    return write(path,filename,s.str());
+}
+
+void * Pwm::pwm_loop(void *argv)
+{
+	Pwm *ppwm = (Pwm *)argv;
+	while(1)
+	{
+		// do not write if target and current are already identical
+		if (ppwm->m_target_dc > ppwm->m_current_dc)
+		{
+			ppwm->m_current_dc++;
+			ppwm->write(ppwm->m_controllerPath, "duty_cycle", ppwm->m_current_dc);
+		}
+		if (ppwm->m_target_dc < ppwm->m_current_dc)
+		{
+			ppwm->m_current_dc--;
+			ppwm->write(ppwm->m_controllerPath, "duty_cycle", ppwm->m_current_dc);
+		}
+		delayMicroseconds(1000);
+	}
 }

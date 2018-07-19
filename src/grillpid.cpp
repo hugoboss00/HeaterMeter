@@ -275,12 +275,18 @@ void GrillPid::servoRangeChanged(void)
 void GrillPid::setServoMinPos(unsigned char value)
 {
   _servoMinPos = value;
+  int output_pw_us = _servoMinPos * 10;
+  servo.setValue(output_pw_us * 1000); //ns
+  servo.lock(3);
   servoRangeChanged();
 }
 
 void GrillPid::setServoMaxPos(unsigned char value)
 {
   _servoMaxPos = value;
+  int output_pw_us = _servoMaxPos * 10;
+  servo.setValue(output_pw_us * 1000); //ns
+  servo.lock(3);
   servoRangeChanged();
 }
 
@@ -729,7 +735,8 @@ void GrillPid::addProbeValues(int i, ptree &pt)
 	
 	float temp = Probes[i]->Temperature;
 	probe.put("n", Probes[i]->getName());
-	probe.put("c", temp);
+	if (Probes[i]->hasTemperature())
+		probe.put("c", temp);
 	probe.put("dph", "1.3");
 	alarm.put("l",Probes[i]->Alarms.getLow());
 	alarm.put("h",Probes[i]->Alarms.getHigh());
@@ -817,11 +824,48 @@ void GrillPid::writeHistory(void)
 	_history_array.push_back(entry);
 }
 
-void GrillPid::getHistoryCsv(stringstream &csv)
+/*
+values for timespan:
+-1  all
+1 	1 hour
+6 	6 hours
+12 	12 hours
+24 	24 hours
+*/
+
+void GrillPid::getHistoryCsv(stringstream &csv, int timespan)
 {
+	unsigned long targettime = 0;
+	if (timespan > 0)
+		targettime = time(NULL) - (timespan *3600);
+	
 	for(std::vector<tHISTORY_ENTRY>::iterator it = _history_array.begin(); it != _history_array.end(); ++it)
 	{
-		csv << it->time << "," << (int)it->set << "," << (int)it->pit << "," << (int)it->food1 << "," << (int)it->food2 << "," << (int)it->food3 << "," << (int)it->fan << "," << (int)it->servo << endl;
+		if (it->time > targettime)
+		{
+			csv << it->time << "," << (int)it->set << ",";
+			if (it->pit > 0)
+				csv << it->pit << ",";
+			else
+				csv << "NaN" << ",";
+
+			if (it->food1 > 0)
+				csv << it->food1 << ",";
+			else
+				csv << "NaN" << ",";
+
+			if (it->food2 > 0)
+				csv << it->food2 << ",";
+			else
+				csv << "NaN" << ",";
+
+			if (it->food3 > 0)
+				csv << it->food3 << ",";
+			else
+				csv << "NaN" << ",";
+			
+			csv << (int)it->fan << "," << (int)it->servo << endl;
+		}
 	}
 }
 
