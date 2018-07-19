@@ -16,7 +16,7 @@ using namespace std;
 Pwm::Pwm()
 {
 	m_current_dc = 0;
-	m_target_dc = 0;
+	m_target_dc = -1;
 	m_locktarget = 0;
 }
 
@@ -99,7 +99,7 @@ void Pwm::setValue(int dutyns, int fast)
 {
 	if (m_locktarget < time(NULL))
 	{
-		printf("pwm pulsewidth : %d ns\n" ,dutyns);
+		//printf("pwm pulsewidth : %d ns\n" ,dutyns);
 		if (fast)
 		{
 			m_target_dc = m_current_dc = dutyns;
@@ -107,7 +107,15 @@ void Pwm::setValue(int dutyns, int fast)
 		}
 		else
 		{
-			m_target_dc = dutyns;
+			if (m_target_dc < 0)
+			{
+				write(m_controllerPath, "duty_cycle", dutyns);
+				m_target_dc = m_current_dc = dutyns;
+			}
+			else
+			{
+				m_target_dc = dutyns;
+			}
 		}
 	}
 }
@@ -136,6 +144,7 @@ int Pwm::write(string path, string filename, string value){
 int Pwm::write(string path, string filename, int value){
    stringstream s;
    s << value;
+   //printf("write %d to pwm\n", value);
    return write(path,filename,s.str());
 }
 
@@ -145,15 +154,18 @@ void * Pwm::pwm_loop(void *argv)
 	while(1)
 	{
 		// do not write if target and current are already identical
-		if (ppwm->m_target_dc > ppwm->m_current_dc)
+		if (ppwm->m_target_dc > 0)
 		{
-			ppwm->m_current_dc++;
-			ppwm->write(ppwm->m_controllerPath, "duty_cycle", ppwm->m_current_dc);
-		}
-		if (ppwm->m_target_dc < ppwm->m_current_dc)
-		{
-			ppwm->m_current_dc--;
-			ppwm->write(ppwm->m_controllerPath, "duty_cycle", ppwm->m_current_dc);
+			if (ppwm->m_target_dc > ppwm->m_current_dc)
+			{
+				ppwm->m_current_dc+=1000; // + 1us
+				ppwm->write(ppwm->m_controllerPath, "duty_cycle", ppwm->m_current_dc);
+			}
+			if (ppwm->m_target_dc < ppwm->m_current_dc)
+			{
+				ppwm->m_current_dc-= 1000; // -1us
+				ppwm->write(ppwm->m_controllerPath, "duty_cycle", ppwm->m_current_dc);
+			}
 		}
 		delayMicroseconds(1000);
 	}

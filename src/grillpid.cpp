@@ -188,7 +188,7 @@ void TempProbe::processPeriod(void)
 
 void TempProbe::setTemperatureC(float T)
 {
-	printf("Set Temperature(%d): %f\n", getPin(), T);
+	//printf("Set Temperature(%d): %f\n", getPin(), T);
   // Sanity - anything less than -20C (-4F) or greater than 500C (932F) is rejected
   if (T <= -20.0f)
     _tempStatus = TSTATUS_LOW;
@@ -261,7 +261,7 @@ void GrillPid::setOutputFlags(unsigned char value)
   else if (bit_is_set(value, PIDFLAG_LINECANCEL_60))
     newTop = 6 * 10;
   else
-    newTop = 40;
+    newTop = 255;
 
   adc.setTop(newTop);
 }
@@ -482,7 +482,7 @@ inline void GrillPid::commitServoOutput(void)
     output_pct = 100 - output_pct;
 
   // Get the output speed in 10x usec by LERPing between min and max
-	printf("pid output: %f%%, temp status:%c\n", PidOutputAvg_fast, Probes[0]->getTempStatus());
+	//printf("pid output: %f%%, temp status:%c\n", PidOutputAvg_fast, Probes[0]->getTempStatus());
 	// calculate the pulse width
     output_pw_us = mappct(output_pct, (_servoMinPos * 10), (_servoMaxPos * 10));
 #ifdef PIN_SIMULATION
