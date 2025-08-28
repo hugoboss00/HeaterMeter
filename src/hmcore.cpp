@@ -31,11 +31,9 @@ Serial CmdSerial;
 
 static HMConfig hm_config;
 
-#ifdef SHIFTREGLCD_NATIVE
-ShiftRegLCDNative lcd(LCD_DATA, PIN_LCD_CLK, TWO_WIRE, 2);
-#else
-ShiftRegLCD lcd(PIN_LCD_CLK, 2);
-#endif /* SHIFTREGLCD_NATIVE */
+// LCD and Menu system removed - HeaterMeter now runs headless
+
+static char editString[PROBE_NAME_SIZE]; // Buffer for probe name editing
 
 
 
@@ -372,137 +370,23 @@ static void lcdPrintBigNum(float val)
 
 static bool isMenuHomeState(void)
 {
-  state_t state = Menus.getState();
-  return (state >= ST_HOME_FOOD1 && state <= ST_HOME_ALARM);
+  // Menu system removed - always return true for headless operation
+  return true;
 }
 
 void updateDisplay(void)
 {
-  // Updates to the temperature can come at any time, only update 
-  // if we're in a state that displays them
-  state_t state = Menus.getState();
-  if (!isMenuHomeState())
-    return;
-
-  char buffer[17];
-  unsigned char probeIdxLow, probeIdxHigh;
-
-  // Fixed pit area
-  lcd.setCursor(0, 0);
-  if (state == ST_HOME_ALARM)
-  {
-    toneEnable(true);
-    if (ALARM_ID_TO_IDX(g_AlarmId) == ALARM_IDX_LOW)
-      lcdprint(("** ALARM LOW  **"), false);
-    else
-      lcdprint(("** ALARM HIGH **"), false);
-
-    probeIdxLow = probeIdxHigh = ALARM_ID_TO_PROBE(g_AlarmId);
-  }  /* if ST_HOME_ALARM */
-#if 0
-  else if (state == ST_PITCAL)
-  {
-    int pit = (int)(pid.Probes[TEMP_PIT]->Temperature * 10.0f);
-    snprintf(buffer, sizeof(buffer), ("%4uADC   %4d" DEGREE "%c"),
-      adc.analogReadOver(PIN_PIT, 10),
-      pit,
-      pid.getUnits());
-    lcd.print(buffer);
-
-    snprintf(buffer, sizeof(buffer), ("Ref=%3u    Nz=%2u"),
-      analogGetBandgapScale(),
-      adc.analogReadRange(PIN_PIT)
-      );
-    lcd.setCursor(0, 1);
-    lcd.print(buffer);
-    return;
-  } /* if ST_PITCAL */
-#endif
-  else
-  {
-    toneEnable(false);
-
-    /* Big Number probes overwrite the whole display if it has a temperature */
-    if (g_HomeDisplayMode >= TEMP_PIT && g_HomeDisplayMode <= TEMP_AMB)
-    {
-      TempProbe *probe = pid.Probes[g_HomeDisplayMode];
-      if (probe->hasTemperature())
-      {
-        lcdPrintBigNum(probe->Temperature);
-        return;
-      }
-    }
-
-    /* Default Pit / Fan Speed first line */
-    int pitTemp;
-    if (pid.Probes[TEMP_CTRL]->hasTemperature())
-      pitTemp = pid.Probes[TEMP_CTRL]->Temperature;
-    else
-      pitTemp = 0;
-    if (!pid.isManualOutputMode() && !pid.Probes[TEMP_CTRL]->hasTemperature())
-      memcpy(buffer, LCD_LINE1_UNPLUGGED, sizeof(LCD_LINE1_UNPLUGGED));
-    else if (pid.isDisabled())
-      snprintf(buffer, sizeof(buffer), ("Pit:%3d" DEGREE "%c  [Off]"),
-        pitTemp, pid.getUnits());
-    else if (pid.LidOpenResumeCountdown > 0)
-      snprintf(buffer, sizeof(buffer), ("Pit:%3d" DEGREE "%c Lid%3u"),
-        pitTemp, pid.getUnits(), pid.LidOpenResumeCountdown);
-    else
-    {
-      char c1,c2;
-      if (pid.isManualOutputMode())
-      {
-        c1 = '^';  // LCD_ARROWUP
-        c2 = '^';  // LCD_ARROWDN
-      }
-      else
-      {
-        c1 = '[';
-        c2 = ']';
-      }
-      snprintf(buffer, sizeof(buffer), ("Pit:%3d" DEGREE "%c %c%3u%%%c"),
-        pitTemp, pid.getUnits(), c1, pid.getPidOutput(), c2);
-    }
-
-    lcd.print(buffer);
-    // Display mode 0xff is 2-line, which only has space for 1 non-pit value
-    if (g_HomeDisplayMode == 0xff)
-      probeIdxLow = probeIdxHigh = state - ST_HOME_FOOD1 + TEMP_FOOD1;
-    else
-    {
-      // Display mode 0xfe is 4 line home, display 3 other temps there
-      probeIdxLow = TEMP_FOOD1;
-      probeIdxHigh = TEMP_AMB;
-    }
-  } /* if !ST_HOME_ALARM */
-
-  // Rotating probe display
-  for (unsigned char probeIndex=probeIdxLow; probeIndex<=probeIdxHigh; ++probeIndex)
-  {
-    if (probeIndex < TEMP_COUNT && pid.Probes[probeIndex]->hasTemperature())
-    {
-      loadProbeName(probeIndex);
-      snprintf(buffer, sizeof(buffer), ("%-12s%3d" DEGREE), editString,
-        (int)pid.Probes[probeIndex]->Temperature);
-    }
-    else
-    {
-      // If probeIndex is outside the range (in the case of ST_HOME_NOPROBES)
-      // just fill the bottom line with spaces
-      memset(buffer, ' ', sizeof(buffer));
-      buffer[sizeof(buffer) - 1] = '\0';
-    }
-
-    lcd.setCursor(0, probeIndex - probeIdxLow + 1);
-    lcd.print(buffer);
-  }
+  // LCD removed - HeaterMeter now runs headless
+  // Display update is handled via web interface
 }
 
 void lcdprint(const char *p, const bool doClear)
 {
+  // LCD removed - HeaterMeter now runs headless
+  // Output via printf instead
   if (doClear)
-    lcd.clear();
-  lcd.print(p);
+    printf("\n--- LCD Clear ---\n");
+  printf("LCD: %s\n", p);
 }
 
 static void storePidParam(char which, float value)
@@ -642,9 +526,8 @@ void storeLcdParam(unsigned char idx, int val)
     case 1:
       g_HomeDisplayMode = val;
       config_store_byte(homeDisplayMode, g_HomeDisplayMode);
-      // If we're in home, clear in case we're switching from 4 to 2
-      if (isMenuHomeState())
-        lcd.clear();
+      // LCD removed - no need to clear display
+      break;
     case 2:
     case 3:
     case 4:
@@ -878,7 +761,8 @@ void handleCommandUrl(const char *URL)
   }
   else if (strncmp(URL, ("set?tt="), 7) == 0)
   {
-    Menus.displayToast(URL+7);
+    // Toast messages now go to console (menu system removed)
+    printf("Toast: %s\n", URL+7);
   }
   else if (strncmp(URL, ("set?tp="), 7) == 0)
   {
@@ -963,11 +847,9 @@ static void checkAlarms(void)
   if (anyRinging)
   {
     reportAlarmLimits();
-    Menus.setState(ST_HOME_ALARM);
+    // Menu system removed - alarm state managed via web interface
   }
-  else if (Menus.getState() == ST_HOME_ALARM)
-    // No alarms ringing, return to HOME
-    Menus.setState(ST_HOME_FOOD1);
+  // Menu system removed - no alarm state tracking needed
 }
 
 static void eepromLoadBaseConfig(unsigned char forceDefault)
@@ -1102,8 +984,7 @@ static void newTempsAvail(void)
 
 static void lcdDefineChars(void)
 {
-  for (unsigned char i=0; i<8; ++i)
-    lcd.createChar(i, BIG_CHAR_PARTS + (i * 8));
+  // LCD removed - HeaterMeter now runs headless
 }
 
 static void ledExecutor(unsigned char led, unsigned char on)
@@ -1114,7 +995,8 @@ static void ledExecutor(unsigned char led, unsigned char on)
       digitalWrite(PIN_WIRELESS_LED, on?1:0);
       break;
     default:
-      lcd.lcd_digitalWrite(led - 1, on);
+      // LCD LEDs removed - could add GPIO-based LEDs here if needed
+      printf("LED %d: %s\n", led-1, on ? "ON" : "OFF");
       break;
   }
 }
@@ -1144,8 +1026,7 @@ void hmcoreSetup(void)
   g_TestMode = 0;
   g_PwmSliderValue = 1500; // Default to middle value
   
-
-  Menus.setState(ST_HOME_NOPROBES);
+  // Menu system removed - HeaterMeter runs headless
 }
 
 
@@ -1264,7 +1145,7 @@ void hmcoreLoop(void)
 	newTempsAvail();
 	pid.writeHistory();
   }
-  Menus.doWork();
+  // Menu system removed - no menu processing needed
   tone_doWork();
   ledmanager.doWork();
 }

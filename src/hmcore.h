@@ -5,11 +5,8 @@
 #include "strings.h"
 
 //#define PIEZO_HZ 4000             // enable piezo buzzer at this frequency
-#define SHIFTREGLCD_NATIVE        // Use the native shift register instead of SPI (HM PCB <v3.2)
 
-#include "ShiftRegLCD.h"
 #include "grillpid.h"
-#include "hmmenus.h"
 
 
 void hmcoreSetup(void);
@@ -41,7 +38,6 @@ void silenceRingingAlarm(void);
 void storeLidParam(unsigned char idx, int val);
 
 extern GrillPid pid;
-extern ShiftRegLCDNative lcd;
 extern unsigned char g_LcdBacklight;
 
 #endif /* __HMCORE_H__ */

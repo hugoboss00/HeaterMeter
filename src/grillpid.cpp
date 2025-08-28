@@ -9,7 +9,6 @@
 #endif
 #include <string.h>
 #include <stdbool.h>
-#include "atomic.h"
 #include "digitalWriteFast.h"
 #include "systemif.h"
 #include "strings.h"

@@ -126,21 +126,6 @@ void delayMicroseconds(int us)
     clock_nanosleep(CLOCK_MONOTONIC, 0, &req, NULL);
     return;
 	
-#if 0	
-	struct timespec a;
-
-	a.tv_nsec=(us) * 1000L;
-	a.tv_sec=0;
-	if (nanosleep(&a, NULL) != 0) {
-		perror("delay_ms error:");
-	}
-#endif
-#if 0
-	int delay = us ;
-	if (delay == 0)
-		delay = 1;
-	usleep(delay);
-#endif
 }
 
 void digitalWrite(int pin, int on)
