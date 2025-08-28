@@ -12,9 +12,6 @@
 
 #include "hmcore.h"
 
-#ifdef HEATERMETER_RFM12
-#include "rfmanager.h"
-#endif
 
 #include "bigchars.h"
 #include "ledmanager.h"
@@ -40,15 +37,7 @@ ShiftRegLCDNative lcd(LCD_DATA, PIN_LCD_CLK, TWO_WIRE, 2);
 ShiftRegLCD lcd(PIN_LCD_CLK, 2);
 #endif /* SHIFTREGLCD_NATIVE */
 
-#ifdef HEATERMETER_SERIAL
-static char g_SerialBuff[64]; 
-#endif /* HEATERMETER_SERIAL */
 
-#ifdef HEATERMETER_RFM12
-static void rfSourceNotify(RFSource &r, unsigned char event); // prototype
-static RFManager rfmanager(&rfSourceNotify);
-static unsigned char rfMap[TEMP_COUNT];
-#endif /* HEATERMETER_RFM12 */
 
 static void ledExecutor(unsigned char led, unsigned char on); // prototype
 static LedManager ledmanager(&ledExecutor);
@@ -73,9 +62,6 @@ static const struct __eeprom_data {
   float pidConstants[4]; // constants are stored Kb, Kp, Ki, Kd
   unsigned char pidMode;
   unsigned char lcdBacklight; // in PWM (max 100)
-#ifdef HEATERMETER_RFM12
-  unsigned char rfMap[TEMP_COUNT];
-#endif
   char pidUnits;
   unsigned char fanMinSpeed;  // in percent
   unsigned char fanMaxSpeed;  // in percent
@@ -97,9 +83,6 @@ static const struct __eeprom_data {
   { 0.0f, 10.0f, 0.01f, 10.0f },  // PID constants
   PIDMODE_STARTUP,  // PID mode
   50,   // lcd backlight (%)
-#ifdef HEATERMETER_RFM12
-  { RFSOURCEID_ANY, RFSOURCEID_ANY, RFSOURCEID_ANY, RFSOURCEID_ANY },  // rfMap
-#endif
   'C',  // Units
   0,    // min fan speed
   100,  // max fan speed
@@ -236,37 +219,6 @@ static void storeProbeType(unsigned char probeIndex, unsigned char probeType)
   }
 }
 
-#ifdef HEATERMETER_RFM12
-static void reportRfMap(void)
-{
-  CmdSerial.write(("HMRM"));
-  for (unsigned char i=0; i<TEMP_COUNT; ++i)
-  {
-    Serial_csv();
-    if (pid.Probes[i]->getProbeType() == PROBETYPE_RF12)
-      SerialX.print(rfMap[i], DEC);
-  }
-  Serial_nl();
-}
-
-static void checkInitRfManager(void)
-{
-  if (pid.countOfType(PROBETYPE_RF12) != 0)
-    rfmanager.init(HEATERMETER_RFM12);
-}
-
-static void storeRfMap(unsigned char probeIndex, unsigned char source)
-{
-  rfMap[probeIndex] = source;
-
-  unsigned char *ofs = (unsigned char *)offsetof(__eeprom_data, rfMap);
-  ofs += probeIndex;
-  hm_config.econfig_write_byte(ofs, source);
-
-  reportRfMap();
-  checkInitRfManager();
-}
-#endif /* HEATERMETER_RFM12 */
 
 static void storeProbeTypeOrMap(unsigned char probeIndex, unsigned char probeType)
 {
@@ -277,26 +229,9 @@ static void storeProbeTypeOrMap(unsigned char probeIndex, unsigned char probeTyp
     if (oldProbeType != probeType)
     {
       storeProbeType(probeIndex, probeType);
-#ifdef HEATERMETER_RFM12
-      if (oldProbeType == PROBETYPE_RF12)
-        storeRfMap(probeIndex, RFSOURCEID_ANY);
-#endif /* HEATERMETER_RFM12 */
     }
   }  /* if probeType */
   
-#ifdef HEATERMETER_RFM12
-  /* If probeType > 128 then it is an wireless probe and the value is 128+source ID */
-  else
-  {
-    unsigned char newSrc = probeType - 128;
-    /* Force the storage of TempProbe::setProbeType() if the src changes
-       because we need to clear Temperature and any accumulated ADC readings */
-    if (pid.Probes[probeIndex]->getProbeType() != PROBETYPE_RF12 ||
-      rfMap[probeIndex] != newSrc)
-      storeProbeType(probeIndex, PROBETYPE_RF12);
-    storeRfMap(probeIndex, newSrc);
-  }  /* if RF map */
-#endif /* HEATERMETER_RFM12 */
 }
 
 static void storeFanMinSpeed(unsigned char fanMinSpeed)
@@ -588,55 +523,14 @@ static void storePidParam(char which, float value)
   hm_config.econfig_write_block(&pid.Pid[k], (void *)(ofs + k * sizeof(float)), sizeof(value));
 }
 
-static void outputCsv(void)
-{
-#ifdef HEATERMETER_SERIAL
-  CmdSerial.write(("HMSU" CSV_DELIMITER));
-  pid.status();
-  Serial_nl();
-#endif /* HEATERMETER_SERIAL */
-}
 
-#if defined(HEATERMETER_SERIAL)
-static void printSciFloat(float f)
-{
-  // This function could use a rework, it is pretty expensive
-  // in terms of space and speed. 
-  char exponent = 0;
-  bool neg = f < 0.0f;
-  if (neg)
-    f *= -1.0f;
-  while (f < 1.0f && f != 0.0f)
-  {
-    --exponent;
-    f *= 10.0f;
-  }
-  while (f >= 10.0f)
-  {
-    ++exponent;
-    f /= 10.0f;
-  }
-  if (neg)
-    f *= -1.0f;
-  CmdSerial.write(f);
-  CmdSerial.write('e');
-  CmdSerial.write(exponent, DEC);
-}
 
 static void reportProbeCoeff(unsigned char probeIdx)
 {
-  CmdSerial.write(("HMPC" CSV_DELIMITER));
-  CmdSerial.write( probeIdx, DEC);
-  Serial_csv();
-  
   TempProbe *p = pid.Probes[probeIdx];
-  for (unsigned char i=0; i<STEINHART_COUNT; ++i)
-  {
-    printSciFloat(p->Steinhart[i]);
-    Serial_csv();
-  }
-  CmdSerial.write(p->getProbeType(), DEC);
-  Serial_nl();
+  printf("Probe %d Coefficients: A=%.6e B=%.6e C=%.6e R=%.1f Type=%d\n",
+         probeIdx, p->Steinhart[0], p->Steinhart[1], p->Steinhart[2], 
+         p->Steinhart[3], p->getProbeType());
 }
 
 static void storeProbeCoeff(unsigned char probeIndex, const char *vals)
@@ -688,25 +582,19 @@ static void reportProbeNames(void)
 
 static void reportPidParams(void)
 {
-  CmdSerial.write(("HMPD"));
-  for (unsigned char i=0; i<4; ++i)
-  {
-    Serial_csv();
-    //printSciFloat(pid.Pid[i]);
-    CmdSerial.write(pid.Pid[i]);
-  }
-  Serial_nl();
+  printf("PID Parameters: B=%.3f P=%.3f I=%.3f D=%.3f\n",
+         pid.Pid[0], pid.Pid[1], pid.Pid[2], pid.Pid[3]);
 }
 
 static void reportProbeOffsets(void)
 {
-  CmdSerial.write(("HMPO"));
+  printf("Probe Offsets: ");
   for (unsigned char i=0; i<TEMP_COUNT; ++i)
   {
-    Serial_csv();
-    CmdSerial.write( pid.Probes[i]->Offset, DEC);
+    printf("P%d=%d", i, pid.Probes[i]->Offset);
+    if (i < TEMP_COUNT - 1) printf(" ");
   }
-  Serial_nl();
+  printf("\n");
 }
 
 void storeAndReportProbeOffset(unsigned char probeIndex, int offset)
@@ -724,32 +612,24 @@ void storeAndReportProbeName(unsigned char probeIndex, const char *name)
 
 static void reportVersion(void)
 {
-  CmdSerial.write(("UCID" CSV_DELIMITER "HeaterMeter" CSV_DELIMITER));
-  CmdSerial.write(hm_version);
-  Serial_nl();
+  printf("Version: UCID=HeaterMeter %s\n", hm_version);
 }
 
 static void reportLidParameters(void)
 {
-  CmdSerial.write(("HMLD" CSV_DELIMITER));
-  CmdSerial.write(pid.LidOpenOffset, DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getLidOpenDuration(), DEC);
-  Serial_nl();
+  printf("Lid Parameters: Offset=%d%% Duration=%ds\n", 
+         pid.LidOpenOffset, pid.getLidOpenDuration());
 }
 
 void reportLcdParameters(void)
 {
-  CmdSerial.write(("HMLB" CSV_DELIMITER));
-  CmdSerial.write(g_LcdBacklight, DEC);
-  Serial_csv();
-  CmdSerial.write(g_HomeDisplayMode, DEC);
+  printf("LCD Parameters: Backlight=%d%% DisplayMode=%d LEDs:", 
+         g_LcdBacklight, g_HomeDisplayMode);
   for (unsigned char i=0; i<LED_COUNT; ++i)
   {
-    Serial_csv();
-    CmdSerial.write( ledmanager.getAssignment(i), DEC);
+    printf(" LED%d=%d", i, ledmanager.getAssignment(i));
   }
-  Serial_nl();
+  printf("\n");
 }
 
 void storeLcdParam(unsigned char idx, int val)
@@ -782,41 +662,24 @@ static void reportProbeCoeffs(void)
 
 static void reportAlarmLimits(void)
 {
-#ifdef HEATERMETER_SERIAL
-  CmdSerial.write(("HMAL"));
+  printf("Alarm Limits: ");
   for (unsigned char i=0; i<TEMP_COUNT; ++i)
   {
     ProbeAlarm &a = pid.Probes[i]->Alarms;
-    Serial_csv();
-    CmdSerial.write(a.getLow(), DEC);
-    if (a.getLowRinging()) CmdSerial.write('L');
-    Serial_csv();
-    CmdSerial.write(a.getHigh(), DEC);
-    if (a.getHighRinging()) CmdSerial.write('H');
+    printf("P%d Low=%d", i, a.getLow());
+    if (a.getLowRinging()) printf("(RINGING)");
+    printf(" High=%d", a.getHigh());
+    if (a.getHighRinging()) printf("(RINGING)");
+    if (i < TEMP_COUNT - 1) printf(" | ");
   }
-  Serial_nl();
-#endif
+  printf("\n");
 }
 
 static void reportFanParams(void)
 {
-  CmdSerial.write(("HMFN" CSV_DELIMITER));
-  CmdSerial.write(pid.getFanMinSpeed(), DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getFanMaxSpeed(), DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getServoMinPos(), DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getServoMaxPos(), DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getOutputFlags(), DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getFanMaxStartupSpeed(), DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getFanActiveFloor(), DEC);
-  Serial_csv();
-  CmdSerial.write(pid.getServoActiveCeil(), DEC);
-  Serial_nl();
+  printf("Fan Parameters: MinSpeed=%d%% MaxSpeed=%d%% ServoMin=%d ServoMax=%d OutputFlags=0x%x MaxStartup=%d%% ActiveFloor=%d%% ServoCeil=%d%%\n",
+         pid.getFanMinSpeed(), pid.getFanMaxSpeed(), pid.getServoMinPos(), pid.getServoMaxPos(),
+         pid.getOutputFlags(), pid.getFanMaxStartupSpeed(), pid.getFanActiveFloor(), pid.getServoActiveCeil());
 }
 
 void storeAndReportMaxFanSpeed(unsigned char maxFanSpeed)
@@ -836,9 +699,6 @@ static void reportConfig(void)
   reportLidParameters();
   reportLcdParameters();
   reportAlarmLimits();
-#ifdef HEATERMETER_RFM12
-  reportRfMap();  
-#endif /* HEATERMETER_RFM12 */
 }
 
 typedef void (*csv_int_callback_t)(unsigned char idx, int val);
@@ -1045,55 +905,17 @@ void handleCommandUrl(const char *URL)
   {
   }
 }
-#endif /* defined(HEATERMETER_SERIAL) */
 
-static void outputRfStatus(void)
-{
-#if defined(HEATERMETER_SERIAL) && defined(HEATERMETER_RFM12)
-  rfmanager.status();
-#endif /* defined(HEATERMETER_SERIAL) && defined(HEATERMETER_RFM12) */
-}
-
-#ifdef HEATERMETER_RFM12
-static void rfSourceNotify(RFSource &r, unsigned char event)
-{
-  for (unsigned char i=0; i<TEMP_COUNT; ++i)
-    if ((pid.Probes[i]->getProbeType() == PROBETYPE_RF12) &&
-    ((rfMap[i] == RFSOURCEID_ANY) || (rfMap[i] == r.getId()))
-    )
-    {
-      if (event == RFEVENT_Remove)
-        pid.Probes[i]->calcTemp(0);
-      else if (r.isNative())
-        pid.Probes[i]->setTemperatureC(r.Value / 10.0f);
-      else
-      {
-        unsigned int val = r.Value;
-        unsigned char adcBits = rfmanager.getAdcBits();
-        // If the remote is lower resolution then shift it up to our resolution
-        if (adcBits < pid.getAdcBits())
-          val <<= (pid.getAdcBits() - adcBits);
-        pid.Probes[i]->calcTemp(val);
-      }
-    } /* if probe is this source */
-
-  if (event & (RFEVENT_Add | RFEVENT_Remove))
-    outputRfStatus();
-}
-#endif /* HEATERMETER_RFM12 */
 
 extern int hm_AdcPins[];
 static void outputAdcStatus(void)
 {
-#if defined(HEATERMETER_SERIAL)
-  CmdSerial.write("HMAR");
+  printf("ADC Status: ");
   for (unsigned char i=0; i<NUM_ANALOG_INPUTS; ++i)
   {
-    Serial_csv();
-    CmdSerial.write(adc.analogReadRange(hm_AdcPins[i]), DEC);
+    printf("ADC%d=%d ", i, adc.analogReadRange(hm_AdcPins[i]));
   }
-  Serial_nl();
-#endif
+  printf("\n");
 }
 
 static void tone_doWork(void)
@@ -1171,9 +993,6 @@ static void eepromLoadBaseConfig(unsigned char forceDefault)
   memcpy(pid.Pid, config.base.pidConstants, sizeof(config.base.pidConstants));
   pid.setPidMode(config.base.pidMode);
   setLcdBacklight(config.base.lcdBacklight);
-#ifdef HEATERMETER_RFM12
-  memcpy(rfMap, config.base.rfMap, sizeof(rfMap));
-#endif
   pid.setUnits(config.base.pidUnits == 'C' ? 'C' : 'F');
   pid.setFanMinSpeed(config.base.fanMinSpeed);
   pid.setFanMaxSpeed(config.base.fanMaxSpeed);
@@ -1240,31 +1059,6 @@ static void blinkLed(void)
   ledmanager.doWork();
 }
 
-#ifdef HEATERMETER_SERIAL
-static void serial_doWork(void)
-{
-  unsigned char len = strlen(g_SerialBuff);
-  char c = CmdSerial.read();
-  while (c != 0)
-  {
-    // support CR, LF, or CRLF line endings
-		if (c == '\n' || c == '\r')  
-		{
-		  if (len != 0 && g_SerialBuff[0] == '/')
-			handleCommandUrl(&g_SerialBuff[1]);
-		  len = 0;
-		}
-		else {
-		  g_SerialBuff[len++] = c;
-		  // if the buffer fills without getting a newline, just reset
-		  if (len >= sizeof(g_SerialBuff))
-			len = 0;
-		}
-		g_SerialBuff[len] = '\0';
-		c = CmdSerial.read();
-  }  /* while CmdSerial */
-}
-#endif  /* HEATERMETER_SERIAL */
 
 /* Starts a debug log output message line, end with Debug_end() */
 void Debug_begin(void)
@@ -1290,10 +1084,8 @@ static void newTempsAvail(void)
   updateDisplay();
   ++pidCycleCount;
     
-  if ((pidCycleCount % 0x20) == 0)
-    outputRfStatus();
 
-  outputCsv();
+  pid.status();
   // We want to report the status before the alarm readout so
   // receivers can tell what the value was that caused the alarm
   checkAlarms();
@@ -1306,9 +1098,6 @@ static void newTempsAvail(void)
 
   publishLeds();
 
-#ifdef HEATERMETER_RFM12
-  rfmanager.sendUpdate(pid.getPidOutput());
-#endif
 }
 
 static void lcdDefineChars(void)
@@ -1335,12 +1124,7 @@ void hmcoreSetup(void)
   pinModeFast(PIN_WIRELESS_LED, OUTPUT);
   blinkLed();
   
-#ifdef HEATERMETER_SERIAL
-  CmdSerial.begin(HEATERMETER_SERIAL);
-  // don't use SerialX because we don't want any preamble
-  CmdSerial.write('\n');
   reportVersion();
-#endif  /* HEATERMETER_SERIAL */
 
 
 
@@ -1360,9 +1144,6 @@ void hmcoreSetup(void)
   g_TestMode = 0;
   g_PwmSliderValue = 1500; // Default to middle value
   
-#ifdef HEATERMETER_RFM12
-  checkInitRfManager();
-#endif
 
   Menus.setState(ST_HOME_NOPROBES);
 }
@@ -1477,14 +1258,6 @@ void getHistory(stringstream &csv, int timespan)
 
 void hmcoreLoop(void)
 { 
-#ifdef HEATERMETER_SERIAL 
-  serial_doWork();
-#endif /* HEATERMETER_SERIAL */
-
-#ifdef HEATERMETER_RFM12
-  if (rfmanager.doWork())
-    ledmanager.publish(LEDSTIMULUS_RfReceive, LEDACTION_OneShot);
-#endif /* HEATERMETER_RFM12 */
 
   if (pid.doWork())
   {

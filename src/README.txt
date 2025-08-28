@@ -36,8 +36,7 @@ When operating in automatic mode at fan speeds below 10%, the fan will run in a 
 
 == Source Modification and Configuration == 
 Most configuration is found in hmcore.h.  There defines used to control the inclusion of some features.  To disable them insert // before the item you'd like to disable.  This "comments out" the define and prevents it from being processed.
-HEATERMETER_SERIAL (baud)- Enable per-period temperature updates to be sent out the serial port as well as configuration changes via serial.  The serial configuration protocol is handlde using the same URLs as ther web server, sent via serial, terminated with CR/CRLF/LF.
-HEATERMETER_RFM12 (band) - Enable the RFM12 device server.
+
 PIEZO_HZ (hertz) - Peak output frequency of the piezo alarm attached to the system. If not defined, build without sound support.
 SHIFTREGLCD_NATIVE - If defined, use original ShiftRegLCD code instead of SPIShiftRegLCD. "Native" mode is needed for HeaterMeter PCB version 3.1 and below.
 

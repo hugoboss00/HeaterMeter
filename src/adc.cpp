@@ -195,21 +195,5 @@ void Adc::init(int pin[], int adccount)
 
 void Adc::adcDump(void)
 {
-#if defined(NOISEDUMP_PIN)
-  static unsigned char x;
-  ++x;
-  if (x == 5)
-  {
-    x = 0;
-    ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0);
-    CmdSerial.write("HMLG,NOISE ");
-    for (unsigned int i=0; i<adcState.top; ++i)
-    {
-      CmdSerial.write(adcState.data[i], DEC);
-    }
-    Serial_nl();
-    ADCSRA = bit(ADEN) | bit(ADATE) | bit(ADIE) | bit(ADPS2) | bit(ADPS1) | bit (ADPS0) | bit(ADSC);
-  }
-#endif
 }
 

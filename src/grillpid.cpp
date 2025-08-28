@@ -212,10 +212,9 @@ void TempProbe::setTemperatureC(float T)
 void TempProbe::status(void) const
 {
   if (hasTemperature())
-    CmdSerial.write(Temperature);
+    printf("%.1f°", Temperature);
   else
-    CmdSerial.write('U');
-  Serial_csv();
+    printf("NO_TEMP");
 }
 
 void GrillPid::init(void)
@@ -356,11 +355,8 @@ void GrillPid::adjustFeedbackVoltage(void)
     _feedvoltLastOutput = constrain(newOutput, 1, 255);
 
 #if defined(GRILLPID_FEEDVOLT_DEBUG)
-    CmdSerial.write("HMLG,");
-    CmdSerial.write("SMPS: ffeed="); CmdSerial.write(ffeedback, DEC);
-    CmdSerial.write(" out="); CmdSerial.write(newOutput, DEC);
-    CmdSerial.write(" fdesired="); CmdSerial.write(_lastBlowerOutput, DEC);
-    Serial_nl();
+    printf("SMPS Debug: ffeed=%d out=%d fdesired=%d\n", 
+           ffeedback, newOutput, _lastBlowerOutput);
 #endif
   }
   else
@@ -577,27 +573,32 @@ void GrillPid::setLidOpenDuration(unsigned int value)
 void GrillPid::status(void) const
 {
 #if defined(GRILLPID_SERIAL_ENABLED)
+  printf("Status: ");
+  
   if (isDisabled())
-    CmdSerial.write('U');
+    printf("DISABLED");
   else if (isManualOutputMode())
-    CmdSerial.write('-');
+    printf("MANUAL");
   else
-    CmdSerial.write(getSetPoint(), DEC);
-  Serial_csv();
-
-  // Always output the control probe in the first slot, usually TEMP_PIT
-  Probes[TEMP_CTRL]->status();
+    printf("SetPoint=%d", getSetPoint());
+  
+  printf(" | Control: ");
+  if (Probes[TEMP_CTRL]->hasTemperature())
+    printf("%.1f°", Probes[TEMP_CTRL]->Temperature);
+  else
+    printf("NO_TEMP");
+  
   // The rest of the probes go in order, and one may be a duplicate of TEMP_CTRL
-  for (unsigned char i = TEMP_FOOD1; i<TEMP_COUNT; ++i)
-    Probes[i]->status();
+  for (unsigned char i = TEMP_FOOD1; i<TEMP_COUNT; ++i) {
+    printf(" | P%d: ", i);
+    if (Probes[i]->hasTemperature())
+      printf("%.1f°", Probes[i]->Temperature);
+    else
+      printf("NO_TEMP");
+  }
 
-  CmdSerial.write(getPidOutput(), DEC);
-  Serial_csv();
-  CmdSerial.write((int)PidOutputAvg, DEC);
-  Serial_csv();
-  CmdSerial.write(LidOpenResumeCountdown, DEC);
-  Serial_csv();
-  CmdSerial.write(getFanSpeed(), DEC);
+  printf(" | PID: %d | Avg: %d | LidCountdown: %d | Fan: %d\n", 
+         getPidOutput(), (int)PidOutputAvg, LidOpenResumeCountdown, getFanSpeed());
 #endif
 }
 
@@ -682,15 +683,9 @@ void GrillPid::pidStatus(void) const
   TempProbe const* const pit = Probes[TEMP_CTRL];
   if (pit->hasTemperature())
   {
-    CmdSerial.write("HMPS" CSV_DELIMITER);
-    for (unsigned char i=PIDB; i<=PIDD; ++i)
-    {
-      CmdSerial.write(_pidCurrent[i]);
-      Serial_csv();
-    }
-
-    CmdSerial.write(pit->Temperature - pit->TemperatureAvg);
-    Serial_nl();
+    printf("PID Status: P=%.2f I=%.2f D=%.2f TempDiff=%.2f\n", 
+           _pidCurrent[PIDP], _pidCurrent[PIDI], _pidCurrent[PIDD], 
+           pit->Temperature - pit->TemperatureAvg);
   }
 #endif
 }

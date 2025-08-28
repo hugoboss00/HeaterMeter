@@ -48,7 +48,7 @@ int init_shm()
 	return 0;
 }
 
-void pinset(char *key, int value)
+void pinset(const char *key, int value)
 {
 	int index = 0;
 	while ((index < 32) && (simpins[index].name[0] != 0))

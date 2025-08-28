@@ -95,6 +95,9 @@ void Pwm::setValue(float duty)
 #endif
 }
 #endif 
+/**
+ * @param dutyns Duty cycle in nanoseconds. Specifies the amount of time the PWM signal stays high within one period.
+ */
 void Pwm::setValue(int dutyns, int fast)
 {
 	if (m_locktarget < time(NULL))

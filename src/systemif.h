@@ -14,7 +14,7 @@ extern const char *hm_version;
 
 #ifdef PIN_SIMULATION
 int pinget(char *key);
-void pinset(char *key, int value);
+void pinset(const char *key, int value);
 #endif
 
 unsigned int millis (void);

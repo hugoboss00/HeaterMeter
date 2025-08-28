@@ -1,52 +1,69 @@
 // HeaterMeter Copyright 2016 Bryan Mayland <bmayland@capnbry.net>
 /*
-  Use TIMER1's 50Hz frequency to generate a ~4kHz tone on any pin
-  OCR1A is incremented 160x per overflow to generate the 8khz interrupt
-
-  This expect TIMER1 to a 50Hz CTC (TOP=40000) before use!
+  BeagleBone PWM-based buzzer control
 */
 #include <stdint.h>
-#include "digitalWriteFast.h"
+#include <unistd.h>
+#include <chrono>
+#include <thread>
+#ifndef PIN_SIMULATION
+#include <BBBiolib.h>
+#endif
+#include "pwm.h"
 #include "tone_4khz.h"
 
-#if 0
-static struct tagTimer4KHzState {
-  uint16_t cnt;
-} timer4k;
-
-ISR(TIMER1_COMPA_vect)
-{
-  if (timer4k.cnt != 0)
-  {
-    uint16_t trigger = OCR1A;
-    trigger += (40000/160);
-    if (trigger >= 40000)
-      trigger = 0;
-    OCR1A = trigger;
-    --timer4k.cnt;
-    uint8_t v = *digitalPinToPortReg(PIN_ALARM);
-    *digitalPinToPortReg(PIN_ALARM) = v ^ (1 << __digitalPinToBit(PIN_ALARM));
-  }
-  else
-    tone4khz_end();
-}
+static Pwm buzzer;
+static bool buzzer_initialized = false;
+static std::thread buzzer_timer_thread;
+static bool timer_active = false;
 
 void tone4khz_init(void)
 {
-  pinModeFast(PIN_ALARM, OUTPUT);
+#ifndef PIN_SIMULATION
+  if (!buzzer_initialized) {
+    // Initialize buzzer PWM at 4kHz frequency
+    buzzer.init(PWM_PIN2B, 4000.0f);
+    buzzer_initialized = true;
+  }
+#endif
 }
 
 void tone4khz_end(void)
 {
-  TIMSK1 &= ~bit(OCIE1A);
-  digitalWriteFast(PIN_ALARM, LOW);
+  timer_active = false;
+  if (buzzer_timer_thread.joinable()) {
+    buzzer_timer_thread.join();
+  }
+#ifndef PIN_SIMULATION
+  if (buzzer_initialized) {
+    buzzer.setValue(0); // 0% duty cycle = off
+  }
+#endif
 }
 
 void tone4khz_begin(unsigned char pin, unsigned char dur)
 {
-  // Stop the tone if it is running
+  // Stop existing tone
   tone4khz_end();
-  timer4k.cnt = (uint16_t)dur * 8U;
-  TIMSK1 |= bit(OCIE1A);
-}
+  
+#ifndef PIN_SIMULATION
+  if (!buzzer_initialized) {
+    tone4khz_init();
+  }
+  
+  // Start PWM at 50% duty cycle for audible tone
+  buzzer.setValue(500000000); // 50% duty cycle in nanoseconds (1 second = 1,000,000,000 ns)
+  
+  // Start timer thread to stop after duration
+  if (dur > 0) {
+    timer_active = true;
+    buzzer_timer_thread = std::thread([dur]() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(dur * 10));
+      if (timer_active) {
+        buzzer.setValue(0); // Turn off after duration
+        timer_active = false;
+      }
+    });
+  }
 #endif
+}
