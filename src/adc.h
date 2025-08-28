@@ -1,9 +1,12 @@
 #ifndef _ADC_H_
 #define _ADC_H_
 
+#ifndef PIN_SIMULATION
 #include <BBBiolib.h>
-
 #define NUM_BBBIO_ADCS (BBBIO_ADC_AIN6 + 1)
+#else
+#define NUM_BBBIO_ADCS 8
+#endif
 #define BUFFER_SIZE 1
 
 

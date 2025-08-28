@@ -250,7 +250,28 @@ namespace SimpleWeb {
           return;
         }
 
-        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(socket->get_io_service()));
+    // Standard: Legacy-API (Boost <= 1.66), moderne API nur mit USE_BOOST_MODERN_ASIO
+#ifdef USE_BOOST_MODERN_ASIO
+    /* Moderne API für Boost >= 1.66 */
+#  if defined(BOOST_ASIO_VERSION) && BOOST_ASIO_VERSION >= 101800
+    /* Boost >= 1.74: get_executor() */
+    timer = std::unique_ptr<asio::steady_timer>(
+      new asio::steady_timer(socket->get_executor())
+    );
+#  else
+    /* Boost 1.66 - 1.73: get_executor().context() */
+    timer = std::unique_ptr<asio::steady_timer>(
+      new asio::steady_timer(socket->get_executor().context())
+    );
+#  endif
+#else
+    /* Legacy-API für Boost <= 1.66 */
+    timer = std::unique_ptr<asio::steady_timer>(
+      new asio::steady_timer(
+        static_cast<boost::asio::ip::tcp::socket&>(socket->lowest_layer()).get_io_service()
+      )
+    );
+#endif
         timer->expires_from_now(std::chrono::seconds(seconds));
         auto self = this->shared_from_this();
         timer->async_wait([self](const error_code &ec) {

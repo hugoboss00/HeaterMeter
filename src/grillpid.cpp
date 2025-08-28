@@ -4,7 +4,9 @@
 // Fan output is 489Hz phase-correct PWM
 // Servo output is 50Hz pulse duration
 #include <math.h>
+#ifndef PIN_SIMULATION
 #include <BBBiolib.h>
+#endif
 #include <string.h>
 #include <stdbool.h>
 #include "atomic.h"
@@ -19,6 +21,8 @@
 
 extern GrillPid pid;
 extern Serial CmdSerial;
+extern unsigned char g_TestMode;
+extern unsigned int g_PwmSliderValue;
 
 Adc adc;
 static Pwm servo;
@@ -222,8 +226,9 @@ void GrillPid::init(void)
   servo.init(PWM_PIN0A, FREQ_SERVO);
 #endif
 
+#ifndef PIN_SIMULATION
   iolib_init();
-
+#endif
   // Initialize ADC 
   adc.init(hm_AdcPins, NUM_ANALOG_INPUTS);
 
@@ -610,6 +615,15 @@ bool GrillPid::doWork(void)
     return false;
   }
   _periodCounter = 0;
+
+  // Test Mode: Skip normal PID logic and directly control servo
+  if (g_TestMode)
+  {
+    // Convert microseconds to nanoseconds and set servo directly
+    servo.setValue(g_PwmSliderValue * 1000);
+    adc.adcDump();
+    return true;
+  }
 
 #if defined(GRILLPID_CALC_TEMP) 
   for (unsigned char i=0; i<TEMP_COUNT; i++)

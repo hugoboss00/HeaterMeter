@@ -796,6 +796,37 @@ time they are restarted.</div>
     Integral <input type="text" maxlength="12" id="pidi" style="width: 5em;"/>
     Derivative <input type="text" maxlength="12" id="pidd" style="width: 5em;"/>
   </div>
+    <div class="cbi-value">
+    </div>
+<script type="text/javascript">
+// PWM Duty Cycle slider logic
+$(function() {
+  var $slider = $('#pwmSlider');
+  var $value = $('#pwmValue');
+  $slider.on('input change', function() {
+    $value.text(this.value);
+    // Call API on slider change
+    fetch('/set?pwm=' + encodeURIComponent(this.value))
+      .then(function(response) { /* Optionally handle response */ });
+  });
+  $('#setSmin').click(function() {
+    $('#sminX').val($slider.val()).trigger('change');
+  });
+  $('#setSmax').click(function() {
+    $('#smaxX').val($slider.val()).trigger('change');
+  });
+  $('#setSceil').click(function() {
+    $('#sceil').val($slider.val()).trigger('change');
+  });
+
+  // Testmode checkbox logic
+  $('#testModeToggle').change(function() {
+    var checked = $(this).is(':checked') ? 1 : 0;
+    fetch('/set?testmode=' + checked)
+      .then(function(response) { /* Optionally handle response */ });
+  });
+});
+</script>
   <div class="cbi-value">
     <input type="hidden" id="oflag"/>
     Fan output
@@ -812,11 +843,19 @@ time they are restarted.</div>
   <div class="cbi-value">
     Servo pulse duration
     <input type="hidden" id="smin"/>
-      <input type="text" maxlength="4" id="sminX" style="width: 3em;"/>us -
+      <input type="text" maxlength="4" id="sminX" style="width: 4em;"/>us -
     <input type="hidden" id="smax"/>
-      <input type="text" maxlength="4" id="smaxX" style="width: 3em;"/>us,
-    fully open at <input type="text" maxlength="3" id="sceil" style="width: 2em;"/>%
+      <input type="text" maxlength="4" id="smaxX" style="width: 4em;"/>us,
+    fully open at <input type="text" maxlength="4" id="sceil" style="width: 3em;"/>
     <label><input type="checkbox" id="oflag1"/> Invert output</label>
+    <br/>
+    <label for="pwmSlider"><b>PWM Duty Cycle</b></label>
+    <input type="range" id="pwmSlider" min="1000" max="2000" value="1500" step="1" style="width:200px; vertical-align:middle;"/>
+    <span id="pwmValue">1500</span> us
+    <button type="button" id="setSmin">Set as smin</button>
+    <button type="button" id="setSmax">Set as smax</button>
+    <button type="button" id="setSceil">Set as sceil</button>
+    <label style="margin-left:1em;"><input type="checkbox" id="testModeToggle"/> Testmode</label>
   </div>
   <div class="cbi-value cbi-value-last">
     A/C input line noise filter
@@ -843,7 +882,7 @@ time they are restarted.</div>
   </div>
   <div class="cbi-value cbi-value-last">
   <ul class="led">
-    <li><div class="circle" style="background: >"></div>
+  <li><div class="circle" style="background: #eee;"></div>
     LED 1
     <label>Invert <input type="checkbox" id="lei0"/></label>
     <br/>

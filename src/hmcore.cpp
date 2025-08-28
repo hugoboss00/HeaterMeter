@@ -57,6 +57,8 @@ static unsigned char g_AlarmId; // ID of alarm going off
 static unsigned char g_HomeDisplayMode;
 static unsigned char g_LogPidInternals; // If non-zero then log PID interals
 unsigned char g_LcdBacklight; // 0-100
+unsigned char g_TestMode; // 0 = off, 1 = on (removed static for external access)
+unsigned int g_PwmSliderValue; // PWM duty cycle value in microseconds (1000-2000) (removed static for external access)
 
 #define config_store_byte(eeprom_field, src) { hm_config.econfig_write_byte((void *)offsetof(__eeprom_data, eeprom_field), src); }
 #define config_store_word(eeprom_field, src) { hm_config.econfig_write_word((void *)offsetof(__eeprom_data, eeprom_field), src); }
@@ -1022,6 +1024,19 @@ void handleCommandUrl(const char *URL)
   {
     csvParseI(URL + 7, setTempParam);
   }
+  else if (strncmp(URL, ("set?pwm="), 8) == 0)
+  {
+    g_PwmSliderValue = atoi(URL + 8);
+    // Clamp value to valid range
+    if (g_PwmSliderValue < 1000) g_PwmSliderValue = 1000;
+    if (g_PwmSliderValue > 2000) g_PwmSliderValue = 2000;
+    printf("PWM slider set to: %d us\n", g_PwmSliderValue);
+  }
+  else if (strncmp(URL, ("set?testmode="), 13) == 0)
+  {
+    g_TestMode = atoi(URL + 13) ? 1 : 0;
+    printf("Test mode %s\n", g_TestMode ? "enabled" : "disabled");
+  }
   else if (strncmp(URL, ("config"), 6) == 0)
   {
     reportConfig();
@@ -1340,6 +1355,11 @@ void hmcoreSetup(void)
   eepromLoadConfig(0);
   pid.init();
   lcdDefineChars();
+  
+  // Initialize PWM slider and test mode
+  g_TestMode = 0;
+  g_PwmSliderValue = 1500; // Default to middle value
+  
 #ifdef HEATERMETER_RFM12
   checkInitRfManager();
 #endif
@@ -1382,6 +1402,10 @@ void getConfigData(ptree &pt)
 	pt.put("le1", ledmanager.getAssignment(1));
 	pt.put("le2", ledmanager.getAssignment(2));
 	pt.put("le3", ledmanager.getAssignment(3));
+
+	//PWM and Test Mode
+	pt.put("pwm", g_PwmSliderValue);
+	pt.put("testmode", g_TestMode);
 
 }
 
