@@ -315,80 +315,6 @@ static void toneEnable(bool enable)
 #endif /* PIEZO_HZ */
 }
 
-static void lcdPrintBigNum(float val)
-{
-#if 0
-  // good up to 3276.8
-  int16_t ival = val * 10;
-  uint16_t uval;
-  bool isNeg;
-  if (ival < 0)
-  {
-    isNeg = true;
-    uval = -ival;
-  }
-  else
-  {
-    isNeg = false;
-    uval = ival;
-  }
-
-  int8_t x = 16;
-  do
-  {
-    if (uval != 0 || x >= 9)
-    {
-      const char *numData = NUMS + ((uval % 10) * 6);
-
-      x -= C_WIDTH;
-      lcd.setCursor(x, 0);
-      lcd.write_P(numData, C_WIDTH);
-      numData += C_WIDTH;
-
-      lcd.setCursor(x, 1);
-      lcd.write_P(numData, C_WIDTH);
-
-      uval /= 10;
-    }  /* if val */
-    --x;
-    lcd.setCursor(x, 0);
-    lcd.write(C_BLK);
-    lcd.setCursor(x, 1);
-    if (x == 12)
-      lcd.write('.');
-    else if (uval == 0 && x < 9 && isNeg)
-    {
-      lcd.write(C_CT);
-      isNeg = false;
-    }
-    else
-      lcd.write(C_BLK);
-  } while (x != 0);
-  
-#endif
-}
-
-static bool isMenuHomeState(void)
-{
-  // Menu system removed - always return true for headless operation
-  return true;
-}
-
-void updateDisplay(void)
-{
-  // LCD removed - HeaterMeter now runs headless
-  // Display update is handled via web interface
-}
-
-void lcdprint(const char *p, const bool doClear)
-{
-  // LCD removed - HeaterMeter now runs headless
-  // Output via printf instead
-  if (doClear)
-    printf("\n--- LCD Clear ---\n");
-  printf("LCD: %s\n", p);
-}
-
 static void storePidParam(char which, float value)
 {
   unsigned char k;
@@ -842,10 +768,12 @@ static void checkAlarms(void)
       ledmanager.publish(LEDSTIMULUS_Alarm0L + alarmId, ringing);
     }
   }
+  printf("line %d\n", __LINE__);
 
   ledmanager.publish(LEDSTIMULUS_AlarmAny, anyRinging);
   if (anyRinging)
   {
+  printf("line %d\n", __LINE__);
     reportAlarmLimits();
     // Menu system removed - alarm state managed via web interface
   }
@@ -963,7 +891,6 @@ static void newTempsAvail(void)
 {
   static unsigned char pidCycleCount;
 
-  updateDisplay();
   ++pidCycleCount;
     
 
