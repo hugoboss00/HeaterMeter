@@ -764,9 +764,7 @@ static void checkAlarms(void)
       {
         anyRinging = true;
         g_AlarmId = alarmId;
-  printf("line %d\n", __LINE__);
       }
-  printf("line %d\n", __LINE__);
       ledmanager.publish(LEDSTIMULUS_Alarm0L + alarmId, ringing);
     }
   }
@@ -774,7 +772,6 @@ static void checkAlarms(void)
   ledmanager.publish(LEDSTIMULUS_AlarmAny, anyRinging);
   if (anyRinging)
   {
-  printf("line %d\n", __LINE__);
     reportAlarmLimits();
     // Menu system removed - alarm state managed via web interface
   }
