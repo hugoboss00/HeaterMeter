@@ -1065,6 +1065,14 @@ void getConfigData(ptree &pt)
 	pt.put("le2", ledmanager.getAssignment(2));
 	pt.put("le3", ledmanager.getAssignment(3));
 
+	//Alarm Limits
+	for (int i=0; i<4; i++)
+	{
+		ProbeAlarm &a = pid.Probes[i]->Alarms;
+		pt.put("pall" + std::to_string(i), a.getLow());
+		pt.put("palh" + std::to_string(i), a.getHigh());
+	}
+
 	//PWM and Test Mode
 	pt.put("pwm", g_PwmSliderValue);
 	pt.put("testmode", g_TestMode);
