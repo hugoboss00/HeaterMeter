@@ -4,7 +4,7 @@
 
 #include "strings.h"
 
-//#define PIEZO_HZ 4000             // enable piezo buzzer at this frequency
+#define PIEZO_HZ 4000             // enable piezo buzzer at this frequency
 
 #include "grillpid.h"
 
@@ -12,8 +12,6 @@
 void hmcoreSetup(void);
 void hmcoreLoop(void);
 
-void updateDisplay(void);
-void lcdprint(const char *p, const bool doClear);
 
 void eepromLoadConfig(unsigned char forceDefault);
 void storePidMode();

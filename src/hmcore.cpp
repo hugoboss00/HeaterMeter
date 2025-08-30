@@ -772,8 +772,14 @@ static void checkAlarms(void)
   ledmanager.publish(LEDSTIMULUS_AlarmAny, anyRinging);
   if (anyRinging)
   {
+    toneEnable(true);
     reportAlarmLimits();
     // Menu system removed - alarm state managed via web interface
+  }
+  else
+  {
+    toneEnable(false);
+
   }
   // Menu system removed - no alarm state tracking needed
 }
