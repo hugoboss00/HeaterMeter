@@ -22,7 +22,7 @@ void tone4khz_init(void)
 #ifndef PIN_SIMULATION
   if (!buzzer_initialized) {
     // Initialize buzzer PWM at 4kHz frequency
-    buzzer.init(PWM_PIN2B, 4000.0f);
+    buzzer.init(PWM_PIN0B, 4000.0f);
     buzzer_initialized = true;
   }
 #endif

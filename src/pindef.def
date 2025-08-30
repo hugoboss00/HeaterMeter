@@ -13,7 +13,7 @@ PIN_DEFINE(PIN_BUTTONS,    0, BBBIO_ADC_AIN0)
 /*          HM Name,    HM define,    BBBIO pin */
 PIN_DEFINE(PIN_BLOWER,   10, PWM_PIN1A)
 PIN_DEFINE(PIN_SERVO,    11, PWM_PIN0A)
-PIN_DEFINE(PIN_ALARM,    23, PWM_PIN2B)
+PIN_DEFINE(PIN_ALARM,    23, PWM_PIN0B)
 
 /* Digital In/Output Pins */
 /*          HM Name,    HM define,    BBBIO pin */
