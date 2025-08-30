@@ -40,7 +40,7 @@ void Pwm::init(int pin, float freq)
 	m_freq = freq;
 	m_pin = pin;
 	pthread_t pwm_thread;
-
+	printf("Init PWM %d to freq:%d\n", pin, freq);
 	switch (pin)
 	{
 		case PWM_PIN0A:
