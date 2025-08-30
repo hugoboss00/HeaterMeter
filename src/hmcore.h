@@ -4,7 +4,7 @@
 
 #include "strings.h"
 
-#define PIEZO_HZ 4000             // enable piezo buzzer at this frequency
+//#define PIEZO_HZ 4000             // enable piezo buzzer at this frequency
 
 #include "grillpid.h"
 
