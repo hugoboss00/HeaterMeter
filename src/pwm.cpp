@@ -130,7 +130,9 @@ int  Pwm::getValue()
 
 int Pwm::write(string path, string filename, string value){
    ofstream fs;
-#ifdef PIN_SIMULATION
+	printf("PWM Write %s to %s:\n",value, (path + "/" + filename).c_str());
+
+   #ifdef PIN_SIMULATION
 #else
    fs.open((path + "/" + filename).c_str());
    if (!fs.is_open()){

@@ -54,7 +54,7 @@ void tone4khz_begin(unsigned char pin, unsigned char dur)
   
   // Start PWM at 50% duty cycle for audible tone
   printf("Start Buzzer\n");
-  buzzer.setValue(500000000); // 50% duty cycle in nanoseconds (1 second = 1,000,000,000 ns)
+  buzzer.setValue(500000000, 1); // 50% duty cycle in nanoseconds (1 second = 1,000,000,000 ns)
   
   // Start timer thread to stop after duration
   if (dur > 0) {
@@ -63,7 +63,7 @@ void tone4khz_begin(unsigned char pin, unsigned char dur)
       std::this_thread::sleep_for(std::chrono::milliseconds(dur * 10));
       if (timer_active) {
         printf("Stop Buzzer\n");
-        buzzer.setValue(0); // Turn off after duration
+        buzzer.setValue(0, 1); // Turn off after duration
         timer_active = false;
       }
     });
